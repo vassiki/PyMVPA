@@ -214,6 +214,50 @@ class StateCollection(object):
         self.__items[index].value = value
 
 
+    def find(self, regexp, reg=None, memo=[]):
+        """Do recursive search for the name"""
+
+        # resultant container -- just a list of
+        # found names below in hierarchy
+        res = []
+
+        d = id(self.owner)
+
+        if d in memo:
+            return res
+
+        if self.owner is None:
+            return res
+
+        assert(isinstance(self.owner, Statefull))
+
+        if reg is None:
+            import re
+            reg = re.compile(regexp)
+
+        # if no regular expression for index
+        # List variables for this very instance
+        res = filter(reg.search, self.names)
+
+        memo += [d]
+
+        # Now lets go through the owner's fields and append names for
+        # the items it knows about and which are Statefull objects
+        for item, value in self.owner.__dict__.iteritems():
+            if not isinstance(value, Statefull):
+                continue
+            childres = value.states.find(regexp, reg, memo)
+
+            if childres != []:
+                if __debug__:
+                    debug("ST", "Found children state variables %s in %s" %
+                          (childres, `value`))
+                res += [ "%s.%s" % (item, x) for x in childres]
+
+        return res
+        #del memo[d] # TODO: may be we should have kept it forever... later on...
+
+
     def isActive(self, index):
         """Returns `True` if state `index` is known and is enabled"""
         return self.isKnown(index) and self.isEnabled(index)

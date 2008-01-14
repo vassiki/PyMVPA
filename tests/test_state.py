@@ -205,6 +205,20 @@ class StateTests(unittest.TestCase):
         class S12(S1__, S2):
             v12 = StateVariable()
 
+        class SContained(S12):
+            def __init__(self):
+                S12.__init__(self)
+                self._s12 = S12()
+                self._s1 = S1()
+
+
+        class SContained2(SContained):
+            vxx = StateVariable(enabled=False)
+            def __init__(self):
+                SContained.__init__(self)
+                self._s2 = S2()
+
+
         s1, s2, s1_, s1__, s12 = S1(), S2(), S1_(), S1__(), S12()
 
         self.failUnlessEqual(s1.states.isEnabled("v1"), True)
@@ -220,6 +234,11 @@ class StateTests(unittest.TestCase):
             self.fail("Should have puked since values were not enabled yet")
         except:
             pass
+
+        # Now lets see if we can find the state variable in the tree ;-)
+        scontained2 = SContained2()
+        self.failUnlessEqual(Set(scontained2.states.find('v[^1]')),
+                             Set(['v2', 'vxx', '_s2.v2', '_s12.v2']))
 
 
 def suite():
