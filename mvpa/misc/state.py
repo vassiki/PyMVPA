@@ -217,6 +217,21 @@ class StateCollection(object):
     def find(self, regexp, reg=None, memo=[]):
         """Do recursive search for the name"""
 
+        def process_one(owner, item, value, res):
+            # just Statefull non-private thingies
+            if not isinstance(value, Statefull) or \
+               item.startswith("_%s__" % owner.__class__.__name__):
+                return
+
+            childres = value.states.find(regexp, reg, memo)
+
+            if childres != []:
+                if __debug__:
+                    debug("ST", "Found children state variables %s in %s" %
+                          (childres, `value`))
+                res += [ "%s.%s" % (item, x) for x in childres]
+
+
         # resultant container -- just a list of
         # found names below in hierarchy
         res = []
@@ -244,15 +259,21 @@ class StateCollection(object):
         # Now lets go through the owner's fields and append names for
         # the items it knows about and which are Statefull objects
         for item, value in self.owner.__dict__.iteritems():
-            if not isinstance(value, Statefull):
-                continue
-            childres = value.states.find(regexp, reg, memo)
+            try:
+                process_one(self.owner, item, value, res)
+            except:
+                pass
 
-            if childres != []:
-                if __debug__:
-                    debug("ST", "Found children state variables %s in %s" %
-                          (childres, `value`))
-                res += [ "%s.%s" % (item, x) for x in childres]
+        # Lets go through the properties
+        for item, value in self.owner.__class__.__dict__.iteritems():
+            # just public thingies since we are looking for properties
+            if item.startswith("_"):
+                continue
+            if isinstance(value, property):
+                try:
+                    process_one(self.owner, item, value.__get__(self.owner), res)
+                except:
+                    pass
 
         return res
         #del memo[d] # TODO: may be we should have kept it forever... later on...
