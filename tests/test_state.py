@@ -210,6 +210,11 @@ class StateTests(unittest.TestCase):
                 S12.__init__(self)
                 self._s12 = S12()
                 self._s1 = S1()
+                self.__ss = [ S2(), S1() ]
+
+            @property
+            def ss(self):
+                return self.__ss
 
 
         class SContained2(SContained):
@@ -222,6 +227,7 @@ class StateTests(unittest.TestCase):
             @property
             def something(self):
                 return self.__something
+
 
         s1, s2, s1_, s1__, s12 = S1(), S2(), S1_(), S1__(), S12()
 
@@ -242,8 +248,8 @@ class StateTests(unittest.TestCase):
         # Now lets see if we can find the state variable in the tree ;-)
         scontained2 = SContained2()
         self.failUnlessEqual(Set(scontained2.states.find('v[^1]')),
-                             Set(['v2', 'vxx', '_s2.v2', '_s12.v2',
-                                  'something.v2', 'something._s12.v2']))
+                             Set(['v2', 'vxx',
+                                  'something.v2', 'something.ss[..].v2']))
 
 
 def suite():

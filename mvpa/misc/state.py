@@ -217,11 +217,15 @@ class StateCollection(object):
     def find(self, regexp, reg=None, memo=[]):
         """Do recursive search for the name"""
 
-        def process_one(owner, item, value, res):
-            # just Statefull non-private thingies
-            if not isinstance(value, Statefull) or \
-               item.startswith("_%s__" % owner.__class__.__name__):
+        def process_one(item, value, res, format="%s.%s"):
+            # just Statefull and very public thingies
+            if item.startswith("_"):
                 return
+            if operator.isSequenceType(value):
+                for value_ in value:
+                    # just do for one
+                    process_one(item, value_, res, format="%s[..].%s")
+                    return
 
             childres = value.states.find(regexp, reg, memo)
 
@@ -229,7 +233,7 @@ class StateCollection(object):
                 if __debug__:
                     debug("ST", "Found children state variables %s in %s" %
                           (childres, `value`))
-                res += [ "%s.%s" % (item, x) for x in childres]
+                res += [ format % (item, x) for x in childres]
 
 
         # resultant container -- just a list of
@@ -260,7 +264,7 @@ class StateCollection(object):
         # the items it knows about and which are Statefull objects
         for item, value in self.owner.__dict__.iteritems():
             try:
-                process_one(self.owner, item, value, res)
+                process_one(item, value, res)
             except:
                 pass
 
@@ -271,7 +275,7 @@ class StateCollection(object):
                 continue
             if isinstance(value, property):
                 try:
-                    process_one(self.owner, item, value.__get__(self.owner), res)
+                    process_one(item, value.__get__(self.owner), res)
                 except:
                     pass
 
