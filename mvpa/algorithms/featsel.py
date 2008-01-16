@@ -23,18 +23,106 @@ from mvpa.misc.exceptions import UnknownStateError
 if __debug__:
     from mvpa.misc import debug
 
-class FeatureSelection(Statefull):
-    """Base class for any feature selection
+
+class FeatureTransformation(Statefull):
+    """Base class for anything which modifies each sample in some way
+
+    XXX it sounds like there is some ambigouse overlap at least in
+    definition with what mappers are there for... think about it. For
+    now I am just adding mapper state variable since that is actually
+    the tool which is 'crafted' by any FeatureTransformation
+
+    Convention is that all `FeatureTransformation`'s are functors which
+    are transforming the data given in the call arguments: 'dataset' and
+    'testdataset'. But besides that they can create and store mapper
+    which would apply computed transformation (previousely on
+    'dataset' and might be using 'testdataset') on some new data.
+    """
+
+    mapper = StateVariable(enabled=False,
+        doc="Generated mapper")
+
+    def __call__(self, dataset, testdataset=None, callables=[]):
+        """Functor function: all transformations must be functors
+        """
+        raise NotImplementedError
+
+
+class RecursiveFeatureProjection(FeatureTransformation):
+    """Transform features for each sample by projecting on a hyperplane
+
+    XXX Should it be named RFP (to follow RFE naming ? ;-))
+    XXX This is a sketch now -- it might transform wildly -- we might
+    like to allow not only orthogonal/orthonormal spaces... may be
+    eventually we make it work for non-linear boundaries (manifolds),
+    so keep that in mind
+    """
+
+    def __init__(self,
+                 normal,
+                 transfer_error=None,
+                 **kwargs):
+        """Initialize `FeatureProjection`
+
+        :Parameters:
+          normal
+            Some functor which given the data would provide us with a
+            normal to the hyperplane to project on. Optionally that
+            functor might provide an offset fot the hyperplane (if it
+            doesn't pass through the origin of coordinates) via state
+            variable 'offset'.
+            It might be simply a sensitivity analyzer of smth else
+            (any functor pretty much)
+            XXX might need to add bool flag to make that explicite
+          transfer_error : TransferError object
+            used to compute the transfer error of a classifier based on a
+            certain feature set on the test dataset.
+            NOTE: If sensitivity analyzer is based on the same
+            classifier as transfer_error is using, make sure you
+            initialize transfer_error with train=False, otherwise
+            it would train classifier twice without any necessity.
+            NOTE: Default is None, so we stop only whenever we exhausted
+            the space
+          stopping_criterion : Functor
+            Given a list of error values it has to return whether the
+            criterion is fulfilled.
+          train_clf : bool
+            Flag whether the classifier in `transfer_error` should be
+            trained before computing the error. In general this is
+            required, but if the `sensitivity_analyzer` and
+            `transfer_error` share and make use of the same classifier it
+            can be switched off to save CPU cycles.
+
+        """
+        self.__normal = normal
+        """Functor to define normal to the hyperplane"""
+
+
+    def __call__(self, dataset, testdataset=None, callables=[]):
+        """Functor call of RecursiveFeatureProjection
+
+        XXX It reminds RFE call very much, so it might be that they
+        could be kids of the same RecursiveFeatureTransformation of
+        some kind?
+        """
+
+        raise NotImplementedError       # yet not finished
+
+
+class FeatureSelection(FeatureTransformation):
+    """Base class for any feature selection - transformatioin where
+    features are selected
 
     Base class for Functors which implement feature selection on the
     datasets.
     """
 
-    selected_ids = StateVariable(enabled=False)
+    selected_ids = StateVariable(enabled=False,
+        doc="List of selected Ids")
 
     def __init__(self, **kargs):
         # base init first
-        Statefull.__init__(self, **kargs)
+        FeatureTransformation.__init__(self, **kargs)
 
 
     def __call__(self, dataset, testdataset=None, callables=[]):

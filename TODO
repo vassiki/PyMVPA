@@ -34,6 +34,8 @@
   * Agree on how to describe parameters to functions. Describe in
    NOTES.coding.
 
+  and indent by 2 or 4 the ReST docstrings...???
+
   * feature_selector -- may be we should return a tuple
     (selected_ids, discarded_ids)?
 
