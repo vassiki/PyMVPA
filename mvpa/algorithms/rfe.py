@@ -119,7 +119,7 @@ class RFE(FeatureSelection):
         # shared classifiers are not retrained
         if not self.__update_sensitivity and not self.__train_clf:
             if __debug__:
-                debug("RFEC", "Forcing training of classifier since " +
+                debug("RFE", "Forcing training of classifier since " +
                       "sensitivities aren't updated at each step")
             self.__train_clf = True
 
@@ -162,14 +162,11 @@ class RFE(FeatureSelection):
         """Will hold the best feature set ever."""
 
         wdataset = dataset
-        """Operate on working dataset initially identical."""
+        """Operating and working dataset initially identical."""
 
         wtestdataset = testdataset
         """Same feature selection has to be performs on test dataset as well.
         This will hold the current testdataset."""
-
-        step = 0
-        """Counter how many selection step where done."""
 
         orig_feature_ids = arange(dataset.nfeatures)
         """List of feature Ids as per original dataset remaining at any given
@@ -188,7 +185,7 @@ class RFE(FeatureSelection):
             # mark the features which are present at this step
             # if it brings anyb mentionable computational burden in the future,
             # only mark on removed features at each step
-            self.history[orig_feature_ids] = step
+            self.history[orig_feature_ids] = len(errors)
 
             # Compute sensitivity map
             if self.__update_sensitivity or sensitivity == None:
@@ -229,10 +226,10 @@ class RFE(FeatureSelection):
             selected_ids = self.__feature_selector(sensitivity)
 
             if __debug__:
-                debug('RFEC',
+                debug('RFE',
                       "Step %d: nfeatures=%d error=%.4f best/stop=%d/%d " \
                       "nfeatures_selected=%d" %
-                      (step, nfeatures, error, isthebest, stop,
+                      (len(errors), nfeatures, error, isthebest, stop,
                        len(selected_ids)))
 
 
@@ -257,8 +254,6 @@ class RFE(FeatureSelection):
             # provide evil access to internals :)
             for callable_ in callables:
                 callable_(locals())
-
-            step += 1
 
             # WARNING: THIS MUST BE THE LAST THING TO DO ON selected_ids
             selected_ids.sort()
