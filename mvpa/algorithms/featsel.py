@@ -58,6 +58,18 @@ class RecursiveFeatureProjection(FeatureTransformation):
     so keep that in mind
     """
 
+    errors = StateVariable(enabled=False,
+                            doc="List of errors (if any) at each step")
+
+    offsets = StateVariable(enabled=False,
+                            doc="List of offsets (if any) at each step")
+
+    normals = StateVariable(enabled=False,
+                            doc="List of normals at each step")
+
+    projections = StateVariable(enabled=False,
+                            doc="List of projections done at each step")
+
     def __init__(self,
                  normal,
                  transfer_error=None,
@@ -74,7 +86,7 @@ class RecursiveFeatureProjection(FeatureTransformation):
             It might be simply a sensitivity analyzer of smth else
             (any functor pretty much)
             XXX might need to add bool flag to make that explicite
-          transfer_error : TransferError object
+          transfer_error : TransferError
             used to compute the transfer error of a classifier based on a
             certain feature set on the test dataset.
             NOTE: If sensitivity analyzer is based on the same
@@ -94,17 +106,107 @@ class RecursiveFeatureProjection(FeatureTransformation):
             can be switched off to save CPU cycles.
 
         """
+        FeatureTransformation.__init__(self, **kargs)
+
         self.__normal = normal
         """Functor to define normal to the hyperplane"""
 
+        self.__transfer_error = transfer_error
+        """If defined - can be used by stopping_criterion"""
+
+        self.__train_clf = train_clf
+        """If defined - can be used by stopping_criterion"""
+
 
     def __call__(self, dataset, testdataset=None, callables=[]):
-        """Functor call of RecursiveFeatureProjection
+        """Functor call of `RecursiveFeatureProjection`
 
-        XXX It reminds RFE call very much, so it might be that they
-        could be kids of the same RecursiveFeatureTransformation of
-        some kind?
+        Iteratevely obtain new normal, project data, repeat
+
+        XXX It reminds RFE call very much (see below for more food for
+        thoughts), so it might be that they could be kids of the same
+        RecursiveFeatureTransformation of some kind?  It might be even
+        closer to RFE than coded now -- we might have the same logic
+        for selection of the best stopping point -- who knows if any
+        given transfer_error is monotonically decreasing... might be
+        not...
+        YYY damn me... sure there is lots of common between RFE and
+        this projection thingie! RFE is simply projecting to dimension
+        orthogonal to those selected to be removed features, thus
+        eliminating those features completely. With current projection
+        scheme we alter all features which got involved in
+        classification, ie which sensitivities are different from 0....
         """
+
+        errors = []
+        """Computed error for each tested projection. If no transfer_error
+        were provided -- simply store None's so StoppingCriterion reacting
+        on number of step could do its job."""
+
+        self.normals = []
+        """Computed normals"""
+
+        self.projections = []
+        """Computed normals"""
+
+
+        self.offsets = []
+        """If offsets are available"""
+
+        wdataset = dataset
+        """Operate on working dataset initially identical."""
+
+        wtestdataset = testdataset
+        """Same projection has to be performs on test dataset as well.
+        This will hold the current testdataset."""
+
+        # XXX some time we could come up with some projections which
+        # wouldn't be creating basis, thus there could be more of them than
+        # number of dimensions (ie # of features)
+        while len(errors) < wdataset.nfeatures:
+            # compute new normal
+            normal = self.__normal(wdataset)
+
+            if hasattr(normal, 'offset'):
+                offset = normal.offset
+
+            # we dedicate assumption about its normalization
+            # if needed to itself
+
+            if self.__transfer_error:
+                # do not retrain clf if not necessary
+                if self.__train_clf:
+                    error = self.__transfer_error(wtestdataset, wdataset)
+                else:
+                    error = self.__transfer_error(wtestdataset, None)
+            else:
+                error = None
+
+            # Check if it is time to stop
+            stop = self.__stopping_criterion(errors)
+
+            if __debug__:
+                debug('RFP',
+                      "Step %d: error=%s stop=%d " %
+                      (len(errors), nfeatures, error, isthebest, stop,
+                       len(selected_ids)))
+
+            # stop if it is time to finish
+            if stop: break
+
+            # projection
+            projection = 
+
+            # compute projection of all samples to the hyperplane
+            wdataset =
+
+
+            # Record the error
+            
+            errors += error
+            offsets += offset
+
+
 
         raise NotImplementedError       # yet not finished
 
@@ -120,9 +222,9 @@ class FeatureSelection(FeatureTransformation):
     selected_ids = StateVariable(enabled=False,
         doc="List of selected Ids")
 
-    def __init__(self, **kargs):
-        # base init first
-        FeatureTransformation.__init__(self, **kargs)
+#    def __init__(self, **kargs):
+#        # base init first
+#        FeatureTransformation.__init__(self, **kargs)
 
 
     def __call__(self, dataset, testdataset=None, callables=[]):
