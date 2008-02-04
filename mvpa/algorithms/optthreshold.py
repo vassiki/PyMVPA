@@ -6,7 +6,8 @@
 #   copyright and license terms.
 #
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
-"""Hmm, what is it?"""
+"""Feature selection by maximizing feature selection overlap across dataset
+splits."""
 
 __docformat__ = 'restructuredtext'
 
@@ -21,13 +22,24 @@ if __debug__:
 
 
 class OptimalOverlapThresholder(FeatureSelection):
+    """Feature selection by maximizing feature selection overlap across splits.
+
+    A `Splitter` is used to generate multiple splits of a dataset. For each
+    split a `SensitivityAnalyzer` is used to compute sensitivity maps. All
+    sensitivity maps are thresholded with some given thresholders (instances
+    of `ElementSelector`) and the respective feature selection overlap across
+    dataset splits is then computed for each thresholder.
     """
-    """
-    sensitivities = StateVariable(enabled=False)
-    overlap_scores = StateVariable(enabled=False)
-    overlap_maps = StateVariable(enabled=False)
-    best_thresholder = StateVariable()
-    best_thresholder_id = StateVariable()
+    sensitivities = StateVariable(enabled=False,
+                                  doc="List of sensitivity maps for all splits")
+    overlap_scores = StateVariable(enabled=False,
+                                   doc="dictionary with several overlap scores")
+    overlap_maps = StateVariable(enabled=False,
+            doc="List of boolean feature overlap maps for each threshold")
+    best_thresholder = StateVariable(doc="Thresholder instance causing the "
+                                         "largest feature overlap")
+    best_thresholder_id = StateVariable(doc="Id of the best thresholder")
+
 
     def __init__(self,
                  sensitivity_analyzer,
@@ -36,16 +48,35 @@ class OptimalOverlapThresholder(FeatureSelection):
                  overlap_thr=1.0,
                  overlap_crit='rel',
                  **kargs):
-        """
+        """Cheap init.
+
         :Parameters:
             sensitivity_analyzer : SensitivityAnalyzer instance
+                Used to compute a sensitivity map for each dataset split.
             thresholders: sequence of ElementSelector instances
+                Feature selection overlap across dataset splits will be
+                computed for every thresholder in this sequence and the
+                best performing overlap will be determined.
             splitter: Splitter instance
+                Used to generate dataset splits.
             overlap_thr: float [0,1]
                 Minimum fraction of selections across splits to define an
                 overlap. Default: 1.0, i.e. a feature has to be selected in
                 each split.
             overlap_crit: str ('frel', 'fspread')
+                Criterion used to determine the 'best' threshold. Available
+                scores are:
+
+                    'frel': Fraction of overlapping features relative to the
+                            number of features selected in each split
+                            (determined as average across splits)
+                    'fspread': Fraction of overlapping features releative to
+                            the total number of features selected in ANY split.
+
+                Please note, that all score are computed and are available
+                from the state variables (if enabled). This argument is only
+                used to determine which score is used to decide what thresholder
+                is best.
         """
         # base init first
         FeatureSelection.__init__(self, **kargs)
@@ -58,16 +89,29 @@ class OptimalOverlapThresholder(FeatureSelection):
 
 
     def __call__(self, dataset, testdataset=None, callables=[]):
-        """
+        """Perform thresholding on a dataset.
+
         :Parameters:
             dataset: Dataset instance
+                This dataset is used to compute the feature selection overlap
+                scores for all configured thresholders.
             testdataset: Dataset instance
+                The optimal thresholding is finally also applied to this
+                dataset (if present).
             callables: (not yet implemented)
+
+        :Returns:
+            A 2-tuple with:
+
+                * `Dataset` instances for all features from `dataset` selected
+                   by the best performing thresholder.
+                * `Dataset instance with the same thresholding applied to
+                  `testdataset` or `None` if no testdataset was supplied.
         """
         fold_maps = []
 
-        if self.states.isEnabled("sensitivities"):
-            self.sensitivities = []
+        # need to precharge state
+        self.sensitivities = []
 
         for nfold, (working_ds, validation_ds) in \
                 enumerate(self.__splitter(dataset)):
