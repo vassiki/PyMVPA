@@ -15,7 +15,7 @@ Base Classifiers can be grouped according to their function as
   SplitClassifier
 :group ProxyClassifiers: BinaryClassifier MappedClassifier
   FeatureSelectionClassifier
-:group Combiners for CombinedClassifier: Combiner MaximalVote
+:group PredictionsCombiners for CombinedClassifier: PredictionsCombiner MaximalVote
 
 """
 
@@ -39,6 +39,18 @@ if __debug__:
     import traceback
     from mvpa.misc import debug
 
+
+def _deepcopyclf(clf):
+    """Deepcopying of a classifier.
+
+    If deepcopy fails -- tries to untrain it first so that there is no
+    swig bindings attached
+    """
+    try:
+        return deepcopy(clf)
+    except:
+        clf.untrain()
+        return deepcopy(clf)
 
 
 class Classifier(Statefull):
@@ -202,7 +214,7 @@ class Classifier(Statefull):
     def _postpredict(self, data, result):
         """Functionality after prediction is computed
         """
-        pass
+        self.predictions = result
 
 
     def _predict(self, data):
@@ -434,11 +446,11 @@ class ProxyClassifier(Classifier):
 # Various combiners for CombinedClassifier
 #
 
-class Combiner(Statefull):
+class PredictionsCombiner(Statefull):
     """Base class for combining decisions of multiple classifiers"""
 
     def train(self, clfs, dataset):
-        """Combiner might need to be trained
+        """PredictionsCombiner might need to be trained
 
         :Parameters:
           clfs : list of Classifier
@@ -464,7 +476,7 @@ class Combiner(Statefull):
 
 
 
-class MaximalVote(Combiner):
+class MaximalVote(PredictionsCombiner):
     """Provides a decision using maximal vote rule"""
 
     predictions = StateVariable(enabled=True,
@@ -477,7 +489,7 @@ class MaximalVote(Combiner):
         voting is not unambigous (ie two classes have equal number of
         votes
         """
-        Combiner.__init__(self)
+        PredictionsCombiner.__init__(self)
 
 
     def __call__(self, clfs, dataset):
@@ -543,7 +555,7 @@ class MaximalVote(Combiner):
 
 
 
-class ClassifierCombiner(Combiner):
+class ClassifierCombiner(PredictionsCombiner):
     """Provides a decision using training a classifier on predictions/values
 
     TODO
@@ -563,7 +575,7 @@ class ClassifierCombiner(Combiner):
             List of state variables stored in 'combined' classifiers, which
             to use as features for training this classifier
         """
-        Combiner.__init__(self)
+        PredictionsCombiner.__init__(self)
 
         self.__clf = clf
         """Classifier to train on `variables` states of provided classifiers"""
@@ -586,7 +598,7 @@ class ClassifierCombiner(Combiner):
 
 
 class CombinedClassifier(BoostedClassifier):
-    """`BoostedClassifier` which combines predictions using some `Combiner`
+    """`BoostedClassifier` which combines predictions using some `PredictionsCombiner`
     functor.
     """
 
@@ -596,7 +608,7 @@ class CombinedClassifier(BoostedClassifier):
         :Parameters:
           clfs : list of Classifier
             list of classifier instances to use
-          combiner : Combiner
+          combiner : PredictionsCombiner
             callable which takes care about combining multiple
             results into a single one (e.g. maximal vote)
           kwargs : dict
@@ -817,10 +829,10 @@ class MulticlassClassifier(CombinedClassifier):
             biclfs = []
             for i in xrange(len(ulabels)):
                 for j in xrange(i+1, len(ulabels)):
-                    clf = deepcopy(self.__clf)
+                    clf = _deepcopyclf(self.__clf)
                     biclfs.append(
                         BinaryClassifier(
-                            deepcopy(clf),
+                            clf,
                             poslabels=[ulabels[i]], neglabels=[ulabels[j]]))
             if __debug__:
                 debug("CLFMC", "Created %d binary classifiers for %d labels" %
@@ -879,7 +891,7 @@ class SplitClassifier(CombinedClassifier):
             if __debug__:
                 debug("CLFSPL",
                       "Deepcopying %s for %s" % (`self.__clf`, `self`))
-            clf = deepcopy(self.__clf)
+            clf = _deepcopyclf(self.__clf)
             bclfs.append(clf)
         self.clfs = bclfs
 
