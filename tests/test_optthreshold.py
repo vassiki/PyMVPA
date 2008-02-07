@@ -16,7 +16,9 @@ from mvpa.datasets.splitter import NFoldSplitter
 from mvpa.algorithms.anova import OneWayAnova
 from mvpa.algorithms.featsel import FractionTailSelector
 from mvpa.algorithms.optthreshold import OptimalOverlapThresholder
+from mvpa.clfs.transerror import TransferError
 
+from tests_warehouse import normalFeatureDataset, sweepargs
 from tests_warehouse_clfs import *
 
 
@@ -31,7 +33,8 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         return Dataset(samples=data, labels=labels, chunks=chunks)
 
 
-    def testFullThresholder(self):
+    @sweepargs(l_clf=clfs['LinearSVMC'])
+    def testFullThresholder(self, l_clf):
         # test full range of thresholding with 0.1 steps
         fractions = N.arange(0.0, 1.1, 0.1).tolist()
         thresholders = [ FractionTailSelector(i, mode='select', tail='upper')
@@ -42,7 +45,8 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         othr = OptimalOverlapThresholder(OneWayAnova(),
                                          thresholders,
                                          NFoldSplitter(cvtype=1),
-                                         enable_states=['overlap_scores',
+                                         TransferError(l_clf),
+                                         enable_states=['thr_scores',
                                                         'overlap_maps',
                                                         'sensitivities',
                                                         'selected_ids'])
@@ -55,8 +59,9 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         self.failUnlessEqual(stdataset, None)
 
         # check score keys
-        self.failUnlessEqual(othr.overlap_scores.keys(),
-                             ['spread', 'fspread', 'rel', 'frel'])
+        for k in othr.thr_scores.keys():
+            self.failUnless(k in ['spread', 'fspread', 'rel', 'frel',
+                                  'terr', 'overlap_terr'])
         # one overlap map per thresholder
         self.failUnlessEqual(N.array(othr.overlap_maps).shape,
                              (len(thresholders), data.nfeatures))
@@ -68,6 +73,9 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
                              (len(data.uniquechunks), data.nfeatures))
         self.failUnless((othr.selected_ids == range(data.nfeatures)).all())
 
+        # basic check of transfer error
+        self.failUnlessEqual(len(othr.thr_scores['terr']), 11)
+        self.failUnlessEqual(len(othr.thr_scores['overlap_terr']), 11)
 
 
 def suite():
