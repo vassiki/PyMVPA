@@ -25,6 +25,7 @@ import copy
 from mvpa.misc.state import StateVariable, Stateful
 from mvpa.clfs.classifier import BoostedClassifier
 from mvpa.clfs.svm import LinearSVM
+from mvpa.misc.transformers import Absolute
 
 if __debug__:
     from mvpa.misc import debug
@@ -36,9 +37,19 @@ class DatasetMeasure(Stateful):
     so it is possible to get the same type of measure for multiple datasets
     by passing them to the __call__() method successively.
     """
-    def __init__(self, *args, **kwargs):
-        """Does nothing."""
+    def __init__(self, transformer=lambda x: x, *args, **kwargs):
+        """Does nothing special.
+
+        :Parameter:
+            transformer: Functor
+                This functor is called in `finalize()` to perform a final
+                processing step on the to be returned dataset measure.
+        """
         Stateful.__init__(self, **kwargs)
+
+        self.__transformer = transformer
+        """Functor to be called in return statement of all subclass __call__()
+        methods."""
 
 
     def __call__(self, dataset, callbacks=[]):
@@ -51,6 +62,13 @@ class DatasetMeasure(Stateful):
         Returns the computed measure in some iterable (list-like) container.
         """
         raise NotImplementedError
+
+
+    def finalize(self, return_value):
+        """This method should be called with the to be returned value by the
+        `__call__()` methods of all subclasses of `DatasetMeasure`.
+        """
+        return self.__transformer(return_value)
 
 
 
@@ -166,7 +184,7 @@ class ClassifierBasedSensitivityAnalyzer(SensitivityAnalyzer):
                        [self.clf.trained]))
             self.clf.train(dataset)
 
-        return self._call(dataset, callables)
+        return self.finalize(self._call(dataset, callables))
 
 
     def _call(self, dataset, callables=[]):
@@ -198,7 +216,7 @@ def selectAnalyzer(clf, basic_analyzer=None, **kwargs):
     banalyzer = None
     if isinstance(clf, LinearSVM):
         from linsvmweights import LinearSVMWeights
-        banalyzer = LinearSVMWeights(clf, **kwargs)
+        banalyzer = LinearSVMWeights(clf, transformer=Absolute, **kwargs)
     elif isinstance(clf, BoostedClassifier):
         if basic_analyzer is None and len(clf.clfs) > 0:
             basic_analyzer = selectAnalyzer(clf.clfs[0], **kwargs)
@@ -242,7 +260,7 @@ class CombinedSensitivityAnalyzer(SensitivityAnalyzer):
 
         self.sensitivities = sensitivities
         result = self.__combiner(sensitivities)
-        return result
+        return self.finalize(result)
 
 
     def _setAnalyzers(self, analyzers):
@@ -303,6 +321,7 @@ class BoostedClassifierSensitivityAnalyzer(ClassifierBasedSensitivityAnalyzer):
 
         self.__combined_analyzer.analyzers = analyzers
 
+        # CombinedSensitivityAnalyzer already calls finalize()
         return self.__combined_analyzer(dataset, callables)
 
     combined_analyzer = property(fget=lambda x:x.__combined_analyzer)
