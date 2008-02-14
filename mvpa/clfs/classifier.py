@@ -297,7 +297,7 @@ class BoostedClassifier(Classifier):
         doc="Values obtained from each classifier")
 
 
-    def __init__(self, clfs=[], **kwargs):
+    def __init__(self, clfs=None, **kwargs):
         """Initialize the instance.
 
         :Parameters:
@@ -307,6 +307,9 @@ class BoostedClassifier(Classifier):
             dict of keyworded arguments which might get used
             by State or Classifier
         """
+        if clfs == None:
+            clfs = []
+
         Classifier.__init__(self, **kwargs)
 
         self.__clfs = None
@@ -494,7 +497,7 @@ class MaximalVote(PredictionsCombiner):
 
     def __call__(self, clfs, dataset):
         """Actuall callable - perform voting
-        
+
         Extended functionality which might not be needed actually:
         Since `BinaryClassifier` might return a list of possible
         predictions (not just a single one), we should consider all of those
@@ -565,7 +568,7 @@ class ClassifierCombiner(PredictionsCombiner):
         doc="Trained predictions")
 
 
-    def __init__(self, clf, variables=['predictions']):
+    def __init__(self, clf, variables=None):
         """Initialize `ClassifierCombiner`
 
         :Parameters:
@@ -580,6 +583,8 @@ class ClassifierCombiner(PredictionsCombiner):
         self.__clf = clf
         """Classifier to train on `variables` states of provided classifiers"""
 
+        if variables == None:
+            variables = ['predictions']
         self.__variables = variables
         """What state variables of the classifiers to use"""
 
@@ -602,7 +607,7 @@ class CombinedClassifier(BoostedClassifier):
     functor.
     """
 
-    def __init__(self, clfs=[], combiner=MaximalVote(), **kwargs):
+    def __init__(self, clfs=None, combiner=MaximalVote(), **kwargs):
         """Initialize the instance.
 
         :Parameters:
@@ -620,6 +625,9 @@ class CombinedClassifier(BoostedClassifier):
             estimate (which is pretty much what is stored under
             `values`
         """
+        if clfs == None:
+            clfs = []
+
         BoostedClassifier.__init__(self, clfs, **kwargs)
 
         self.__combiner = combiner
