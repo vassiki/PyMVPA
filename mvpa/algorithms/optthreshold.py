@@ -34,10 +34,18 @@ class OptimalOverlapThresholder(FeatureSelection):
     sensitivities = \
         StateVariable(enabled=False,
             doc="List of sensitivity maps for all splits")
-    ovscores = \
-        StateVariable(enabled=False,
-            doc="dictionary with several scores for each "
-                            "thresholder")
+    fselected = \
+        StateVariable(enabled=True,
+            doc="Fractions of features thresholded in each split for every " \
+                "thresholder.")
+    fspread = \
+        StateVariable(enabled=True,
+            doc="Fractions of features selected in any split for every " \
+                "thresholder.")
+    fov = \
+        StateVariable(enabled=True,
+            doc="Fractions of features overlapping across splits for every " \
+                "thresholder.")
     ovstatmaps = \
         StateVariable(enabled=False,
             doc="List of feature overlap maps for each threshold. Each "
@@ -300,8 +308,10 @@ class OptimalOverlapThresholder(FeatureSelection):
 #        selected_ids = overlap_maps[best_thr_id].nonzero()[0]
 
         # charge state
-        self.ovscores = ovscores
-        self.ovstatmaps = ovstatmaps
+        self.fov = N.array(ovscores['fov'])
+        self.fspread = N.array(ovscores['fspread'])
+        self.fselected = N.array(ovscores['fselected'])
+        self.ovstatmaps = N.array(ovstatmaps)
 #
 #        self.best_thresholder_id = best_thr_id
 #        self.best_thresholder = self.__thresholders[best_thr_id]

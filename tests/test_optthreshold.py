@@ -40,8 +40,8 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         thresholders = [ FractionTailSelector(i, mode='select', tail='upper')
                          for i in fractions ]
 
-        state_keys = ['ovscores', 'ovstatmaps', 'sensitivities', 
-                      'selected_ids']
+        ovscore_keys = ['fov', 'fselected', 'fspread']
+        state_keys = ['ovstatmaps', 'sensitivities', 'selected_ids']
         terr_keys = ['terr_ov', 'terr_nthr', 'terr_spread', 'terr_sthr',
                      'terr_nsthr']
 
@@ -50,7 +50,7 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         othr = OptimalOverlapThresholder(
                     OneWayAnova(), thresholders, NFoldSplitter(cvtype=1),
                     TransferError(l_clf),
-                    enable_states=state_keys + terr_keys)
+                    enable_states=state_keys + terr_keys + ovscore_keys)
 
         # run on dataset
         data = self.getData()
@@ -59,9 +59,6 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         # by default no test dataset
         self.failUnlessEqual(stdataset, None)
 
-        # check score keys
-        for k in othr.ovscores.keys():
-            self.failUnless(k in ['fspread', 'fselected', 'fov'])
         # one overlap map per thresholder
         self.failUnlessEqual(N.array(othr.ovstatmaps).shape,
                              (len(thresholders), data.nfeatures))
@@ -74,13 +71,13 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
 #        self.failUnless((othr.selected_ids == range(data.nfeatures)).all())
 
         # check score keys
-        for k in terr_keys:
-            terr = othr.states.get(k)
+        for k in terr_keys + ovscore_keys:
+            state = othr.states.get(k)
             # proper shape: one per thresholder
-            self.failUnlessEqual(terr.shape, (len(thresholders),))
+            self.failUnlessEqual(state.shape, (len(thresholders),))
             # proper range
-            self.failUnless((terr >= 0.0).all())
-            self.failUnless((terr <= 1.0).all())
+            self.failUnless((state >= 0.0).all())
+            self.failUnless((state <= 1.0).all())
 
 
 
