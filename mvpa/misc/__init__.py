@@ -43,12 +43,7 @@ class __Singleton:
 verbose = __Singleton("verbose", LevelLogger(handlers=[stdout]))
 errors = __Singleton("errors", LevelLogger(handlers=[stderr]))
 
-# Levels for verbose
-# 0 -- nothing besides errors
-# 1 -- high level stuff -- top level operation or file operations
-# 2 -- cmdline handling
-# 3 --
-# 4 -- computation/algorithm relevant thingies
+# Levels for verbose: refer to (and document) in manual!
 
 # Lets check if environment can tell us smth
 if environ.has_key('MVPA_VERBOSE'):
@@ -106,6 +101,7 @@ if __debug__:
     debug.register('PSA',  "Perturbation analyzer call")
     debug.register('RFEC', "Recursive Feature Elimination call")
     debug.register('IFSC', "Incremental Feature Search call")
+    debug.register('OTHRC', "Optimal Overlap Thresholder call")
     debug.register('DS',   "*Dataset")
     debug.register('ST',   "State")
     debug.register('STV',  "State Variable")
