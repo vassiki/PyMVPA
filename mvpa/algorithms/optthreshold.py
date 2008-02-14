@@ -16,7 +16,7 @@ import numpy as N
 from mvpa.algorithms.featsel import FeatureSelection
 from mvpa.clfs.transerror import TransferError
 from mvpa.misc.state import StateVariable
-
+from mvpa.misc import verbose
 
 if __debug__:
     from mvpa.misc import debug
@@ -31,16 +31,40 @@ class OptimalOverlapThresholder(FeatureSelection):
     of `ElementSelector`) and the respective feature selection overlap across
     dataset splits is then computed for each thresholder.
     """
-    sensitivities = StateVariable(enabled=False,
-                                  doc="List of sensitivity maps for all splits")
-    thr_scores = StateVariable(enabled=False,
-                               doc="dictionary with several scores for each "
-                                   "thresholder")
-    overlap_maps = StateVariable(enabled=False,
-            doc="List of boolean feature overlap maps for each threshold")
-    best_thresholder = StateVariable(doc="Thresholder instance causing the "
-                                         "largest feature overlap")
-    best_thresholder_id = StateVariable(doc="Id of the best thresholder")
+    sensitivities = \
+        StateVariable(enabled=False,
+            doc="List of sensitivity maps for all splits")
+    ovscores = \
+        StateVariable(enabled=False,
+            doc="dictionary with several scores for each "
+                            "thresholder")
+    ovstatmaps = \
+        StateVariable(enabled=False,
+            doc="List of feature overlap maps for each threshold. Each "
+                "element shows the fraction of selections for the "
+                "respective feature across splits.")
+    terr_ov = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise transfer error for overlapping features.")
+    terr_nthr = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise transfer error for features never " \
+                "thresholded.")
+    terr_spread = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise transfer error for features thresholded at " \
+                "least once but not always.")
+    terr_sthr = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise transfer error for features thresholded in " \
+                "the respective split.")
+    terr_nsthr = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise transfer error for features not " \
+                "thresholded in the respective split.")
+#    best_thresholder = StateVariable(doc="Thresholder instance causing the "
+#                                         "largest feature overlap")
+#    best_thresholder_id = StateVariable(doc="Id of the best thresholder")
 
 
     def __init__(self,
@@ -49,7 +73,6 @@ class OptimalOverlapThresholder(FeatureSelection):
                  splitter,
                  transerror,
                  overlap_thr=1.0,
-                 overlap_crit='rel',
                  **kargs):
         """Cheap init.
 
@@ -69,20 +92,6 @@ class OptimalOverlapThresholder(FeatureSelection):
                 Minimum fraction of selections across splits to define an
                 overlap. Default: 1.0, i.e. a feature has to be selected in
                 each split.
-            overlap_crit: str ('frel', 'fspread')
-                Criterion used to determine the 'best' threshold. Available
-                scores are:
-
-                    'frel': Fraction of overlapping features relative to the
-                            number of features selected in each split
-                            (determined as average across splits)
-                    'fspread': Fraction of overlapping features releative to
-                            the total number of features selected in ANY split.
-
-                Please note, that all score are computed and are available
-                from the state variables (if enabled). This argument is only
-                used to determine which score is used to decide what thresholder
-                is best.
         """
         # base init first
         FeatureSelection.__init__(self, **kargs)
@@ -92,10 +101,166 @@ class OptimalOverlapThresholder(FeatureSelection):
         self.__splitter = splitter
         self.__transerror = transerror
         self.__overlap_thr = overlap_thr
-        self.__overlap_crit = overlap_crit
 
 
-    def __call__(self, dataset, testdataset=None, callables=[]):
+    def computeSelectionMaps(self, dataset):
+        """Compute the boolean selection maps for all splits and thresholders.
+
+        Returns:
+            ndarray: (splits x thresholders x features), dtype='bool'
+        """
+        fold_maps = []
+
+        # need to precharge state
+        self.sensitivities = []
+
+        for nfold, (working_ds, validation_ds) in \
+                enumerate(self.__splitter(dataset)):
+
+            if __debug__:
+                debug('OTHRC', 'Compute sensitivities for split %i.' %nfold)
+
+            # compute sensitivities for the working dataset
+            sensitivities = self.__sensitivity_analyzer(working_ds)
+
+            if self.states.isEnabled("sensitivities"):
+                self.sensitivities.append(sensitivities)
+
+            # compute selection maps for each thresholder
+            thr_maps = []
+
+            for i, thr in enumerate(self.__thresholders):
+                thr_maps.append(
+                    dataset.convertFeatureIds2FeatureMask(thr(sensitivities)))
+
+            fold_maps.append(thr_maps)
+
+        # need array for easy access
+        return N.array(fold_maps, dtype='bool')
+
+
+    def computeOverlap(self, smaps):
+        """Compute feature selection overlap across splits and associated
+        scores.
+
+        Returns:
+            ndarray: (thresholders x features)
+                Fraction of selections per thresholder and feature.
+            dict: keys=['fselected', 'fspread', 'fov']
+                Each key points to a list with one entry per thresholder.
+
+                  :fselected: fraction of features selected in *each* split
+                  :fspread: fraction of features selected in *any* split
+                  :fov: fraction of features selected in *all* splits
+        """
+        # maps of overlapping features (thresholders x features)
+        ovstatmaps = []
+
+        ovscores = {'fselected': [],
+                     'fspread': [],
+                     'fov': []}
+
+        # computer feature overlap per thresholder and across splits
+        for i, thr in enumerate(self.__thresholders):
+            # fraction of selected features in each split
+            # computed as mean over splits, but just to deal with e.g. tricky
+            # fractions
+            fselected = N.mean(smaps[:,i])
+
+            # fraction of selections per feature
+            ovstatmap = N.mean(smaps[:,i], axis=0)
+
+            # fraction of features selected in any of the splits
+            fspread = N.mean(ovstatmap > 0.0)
+
+            # fraction of overlapping features
+            foverlap = N.mean(ovstatmap >= self.__overlap_thr)
+
+            # store stuff
+            ovstatmaps.append(ovstatmap)
+            ovscores['fselected'].append(fselected)
+            ovscores['fspread'].append(fspread)
+            ovscores['fov'].append(foverlap)
+
+        return ovstatmaps, ovscores
+
+
+    def __storeTransferError(self, container, key, split, wds, vds,
+                             feature_ids):
+        """Incrementally store transfer error values. Evil! Do not use from
+        outside.
+        """
+        if not container.has_key(key):
+            container[key] = []
+
+        if len(container[key]) == split:
+            container[key].append([])
+
+        container[key][split].append(
+            self.__transerror(vds.selectFeatures(feature_ids),
+                              wds.selectFeatures(feature_ids)))
+
+
+    def computeTransferErrors(self, dataset, smaps, ovstatmaps, ovscores):
+        """Compute cross-validated transfer errors for various feature set.
+
+        Each transfer error has to be enable via the `Stateful` interface.
+
+        :Returns:
+            dict: keys == state names
+        """
+        # transfer errors: (measure: split x thresholder)
+        terrs = {}
+
+        # split
+        for nfold, (wds, vds) in enumerate(self.__splitter(dataset)):
+            if __debug__:
+                debug('OTHRC', "Compute transfer error(s) for split (%i/%i)" \
+                               % (nfold, smaps.shape[0]))
+
+            # for every thresholder
+            for i, thr in enumerate(self.__thresholders):
+                if self.states.isEnabled("terr_sthr"):
+                    self.__storeTransferError(
+                        terrs, 'terr_sthr', nfold, wds, vds,
+                        dataset.convertFeatureMask2FeatureIds(
+                                            smaps[nfold, i] == True))
+                if self.states.isEnabled("terr_nsthr"):
+                    self.__storeTransferError(
+                        terrs, 'terr_nsthr', nfold, wds, vds,
+                        dataset.convertFeatureMask2FeatureIds(
+                                            smaps[nfold, i] == False))
+                if self.states.isEnabled("terr_ov"):
+                    self.__storeTransferError(
+                        terrs, 'terr_ov', nfold, wds, vds,
+                        dataset.convertFeatureMask2FeatureIds(
+                                    ovstatmaps[i] >= self.__overlap_thr))
+                if self.states.isEnabled("terr_nthr"):
+                    self.__storeTransferError(
+                        terrs, 'terr_nthr', nfold, wds, vds,
+                        dataset.convertFeatureMask2FeatureIds(
+                                    ovstatmaps[i] == 0))
+                if self.states.isEnabled("terr_spread"):
+                    self.__storeTransferError(
+                        terrs, 'terr_spread', nfold, wds, vds,
+                        dataset.convertFeatureMask2FeatureIds(
+                            N.logical_and(ovstatmaps[i] > 0.0,
+                                          ovstatmaps[i] < 1.0)))
+
+        # mean across splits for all computed transfer errors
+        for k, v in terrs.iteritems():
+            avg = N.mean(v, axis=0)
+
+            # store to state
+            self.states.set(k, avg)
+
+            # prepare return value
+            terrs[k] = avg
+
+        return terrs
+
+
+    def __call__(self, dataset, testdataset=None):
         """Perform thresholding on a dataset.
 
         :Parameters:
@@ -105,7 +270,6 @@ class OptimalOverlapThresholder(FeatureSelection):
             testdataset: Dataset instance
                 The optimal thresholding is finally also applied to this
                 dataset (if present).
-            callables: (not yet implemented)
 
         :Returns:
             A 2-tuple with:
@@ -115,123 +279,42 @@ class OptimalOverlapThresholder(FeatureSelection):
                 * `Dataset instance with the same thresholding applied to
                   `testdataset` or `None` if no testdataset was supplied.
         """
-        fold_maps = []
-        fold_err = []
-
-        # need to precharge state
-        self.sensitivities = []
-
-        for nfold, (working_ds, validation_ds) in \
-                enumerate(self.__splitter(dataset)):
-
-            # compute sensitivities for the working dataset
-            sensitivities = self.__sensitivity_analyzer(working_ds)
-
-            if self.states.isEnabled("sensitivities"):
-                self.sensitivities.append(sensitivities)
-
-            # compute selection maps and transfer error for each thresholder
-            thr_maps = []
-            thr_err = []
-
-            for thr in self.__thresholders:
-                thr_ids = thr(sensitivities)
-                thr_maps.append(
-                    dataset.convertFeatureIds2FeatureMask(thr_ids))
-                # XXX need a way to make sure that any Dataset subclass can
-                # do cheap feature selection by just returning a base Dataset
-                err = self.__transerror(validation_ds.selectFeatures(thr_ids),
-                                        working_ds.selectFeatures(thr_ids))
-                thr_err.append(err)
-
-            fold_maps.append(thr_maps)
-            fold_err.append(thr_err)
-
-        # need array for easy access
+        verbose(1, "Determine optimal overlap threshold.")
+        verbose(4, "Compute sensitivities and store selection maps for all " \
+                   "thresholders.")
         # (splits x thresholders x features)
-        fold_maps = N.array(fold_maps, dtype='bool')
-        fold_err = N.array(fold_err, dtype='float')
+        smaps = self.computeSelectionMaps(dataset)
 
-        # maps of overlapping features (for each thresholder)
-        overlap_maps = []
+        verbose(4, "Determine overlapping features and associated stats.")
+        ovstatmaps, ovscores = self.computeOverlap(smaps)
 
-        # not all keys listed here!
-        thr_scores = {'spread': [],
-                      'rel': [],
-                      'fspread': [],
-                      'frel': []}
-
-        # computer feature overlap per thresholder and across splits
-        for i, thr in enumerate(self.__thresholders):
-            # fraction of selected features in each split
-            # computed as mean over splits, but just to deal with e.g. tricky
-            # fractions
-            fselected_eachsplit = N.mean(fold_maps[:,i])
-
-            # fraction of selections per feature
-            feature_overlap_stats = N.mean(fold_maps[:,i], axis=0)
-
-            # fraction of features selected in any of the splits
-            fselected_acrosssplits = N.mean(feature_overlap_stats > 0.0)
-
-            # boolean map of overlapping features (as defined by threshold)
-            overlap_map = feature_overlap_stats >= self.__overlap_thr
-
-            # fraction of overlapping features
-            foverlap = N.mean(overlap_map)
-
-            # store stuff
-            overlap_maps.append(overlap_map)
-            # overlap wrt mean of selected features
-            thr_scores['rel'].append(fselected_eachsplit)
-            thr_scores['frel'].append(foverlap / fselected_eachsplit)
-            # overlap wrt fraction of features selected in any split
-            thr_scores['spread'].append(fselected_acrosssplits)
-            thr_scores['fspread'].append(foverlap / fselected_acrosssplits)
-
-        # mean transfer error across splits
-        thr_scores['terr'] = N.mean(fold_err, axis=0)
-
-        # and again through all split to compute transfer error for just the
-        # overlapping features
-        fold_overlap_err = []
-
-        for nfold, (working_ds, validation_ds) in \
-                enumerate(self.__splitter(dataset)):
-            # transfer error for overlap for each threshold
-            overlap_err = []
-            for i, thr in enumerate(self.__thresholders):
-                overlap_ids = overlap_maps[i].nonzero()[0]
-                err = self.__transerror(
-                        validation_ds.selectFeatures(overlap_ids),
-                        working_ds.selectFeatures(overlap_ids))
-                overlap_err.append(err)
-
-            fold_overlap_err.append(overlap_err)
-
-        # mean transfer error for overlapping features across splits
-        thr_scores['overlap_terr'] = N.mean(N.array(fold_overlap_err,
-                                                    dtype='float'),
-                                            axis=0)
+        verbose(4, "Compute various transfer errors.")
+        # (thresholders x (a,b,c,d))
+        terrs = self.computeTransferErrors(dataset,
+                                           smaps,
+                                           ovstatmaps,
+                                           ovscores)
 
         # determine largest overlap and associated thresholder
-        best_thr_id = N.array(thr_scores[self.__overlap_crit]).argmax()
-        selected_ids = overlap_maps[best_thr_id].nonzero()[0]
+#        best_thr_id = N.array(thr_scores[self.__overlap_crit]).argmax()
+#        selected_ids = overlap_maps[best_thr_id].nonzero()[0]
 
         # charge state
-        self.thr_scores = thr_scores
-        self.overlap_maps = overlap_maps
-
-        self.best_thresholder_id = best_thr_id
-        self.best_thresholder = self.__thresholders[best_thr_id]
-
-        self.selected_ids = selected_ids
-
-        # and select overlapping feature from original dataset(s)
-        if testdataset:
-            results = (dataset.selectFeatures(selected_ids),
-                       testdataset.selectFeatures(selected_ids))
-        else:
-            results = (dataset.selectFeatures(selected_ids), None)
-
-        return results
+        self.ovscores = ovscores
+        self.ovstatmaps = ovstatmaps
+#
+#        self.best_thresholder_id = best_thr_id
+#        self.best_thresholder = self.__thresholders[best_thr_id]
+#
+#        self.selected_ids = selected_ids
+#
+#        # and select overlapping feature from original dataset(s)
+#        if testdataset:
+#            results = (dataset.selectFeatures(selected_ids),
+#                       testdataset.selectFeatures(selected_ids))
+#        else:
+#            results = (dataset.selectFeatures(selected_ids), None)
+#
+#        return results
+        # for now just return original input
+        return dataset, testdataset
