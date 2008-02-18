@@ -146,12 +146,20 @@ class OptimalOverlapThresholder(FeatureSelection):
         # need array for easy access
         return N.array(fold_maps, dtype='bool')
 
-
-    def computeOverlap(self, smaps):
+    @staticmethod
+    def computeOverlap(smaps, overlap_thr):
         """Compute feature selection overlap across splits and associated
         scores.
 
-        Returns:
+        :Parameters:
+            smaps: ndarray (splits x maps x features)
+                Array with any number of binary selection maps.
+            overlap_thr: float [0,1]
+                Threshold of fraction of selection average across maps that is
+                to be considered as an 'overlap'. Most likely this should be
+                1.0.
+
+        :Returns:
             ndarray: (thresholders x features)
                 Fraction of selections per thresholder and feature.
             dict: keys=['fselected', 'fspread', 'fov']
@@ -162,6 +170,9 @@ class OptimalOverlapThresholder(FeatureSelection):
                             not overlapping
                   :fov: fraction of features selected in *all* splits
         """
+        if not len(smaps.shape) == 3:
+            raise ValueError, "'smaps' has to be (splits x maps x features."
+
         # maps of overlapping features (thresholders x features)
         ovstatmaps = []
 
@@ -170,7 +181,7 @@ class OptimalOverlapThresholder(FeatureSelection):
                      'fov': []}
 
         # computer feature overlap per thresholder and across splits
-        for i, thr in enumerate(self.__thresholders):
+        for i in xrange(smaps.shape[1]):
             # fraction of selected features in each split
             # computed as mean over splits, but just to deal with e.g. tricky
             # fractions
@@ -185,7 +196,7 @@ class OptimalOverlapThresholder(FeatureSelection):
                                            ovstatmap < 1.0))
 
             # fraction of overlapping features
-            foverlap = N.mean(ovstatmap >= self.__overlap_thr)
+            foverlap = N.mean(ovstatmap >= overlap_thr)
 
             # store stuff
             ovstatmaps.append(ovstatmap)
@@ -297,7 +308,8 @@ class OptimalOverlapThresholder(FeatureSelection):
         smaps = self.computeSelectionMaps(dataset)
 
         verbose(4, "Determine overlapping features and associated stats.")
-        ovstatmaps, ovscores = self.computeOverlap(smaps)
+        ovstatmaps, ovscores = \
+            OptimalOverlapThresholder.computeOverlap(smaps, self.__overlap_thr)
 
         verbose(4, "Compute various transfer errors.")
         # (thresholders x (a,b,c,d))
