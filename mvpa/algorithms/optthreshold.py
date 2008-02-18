@@ -40,8 +40,8 @@ class OptimalOverlapThresholder(FeatureSelection):
                 "thresholder.")
     fspread = \
         StateVariable(enabled=True,
-            doc="Fractions of features selected in any split for every " \
-                "thresholder.")
+            doc="Fractions of features selected in any split, but not " \
+                "overlapping for every thresholder.")
     fov = \
         StateVariable(enabled=True,
             doc="Fractions of features overlapping across splits for every " \
@@ -158,7 +158,8 @@ class OptimalOverlapThresholder(FeatureSelection):
                 Each key points to a list with one entry per thresholder.
 
                   :fselected: fraction of features selected in *each* split
-                  :fspread: fraction of features selected in *any* split
+                  :fspread: fraction of features selected in *any* split, but
+                            not overlapping
                   :fov: fraction of features selected in *all* splits
         """
         # maps of overlapping features (thresholders x features)
@@ -178,8 +179,10 @@ class OptimalOverlapThresholder(FeatureSelection):
             # fraction of selections per feature
             ovstatmap = N.mean(smaps[:,i], axis=0)
 
-            # fraction of features selected in any of the splits
-            fspread = N.mean(ovstatmap > 0.0)
+            # fraction of features selected in any of the splits, but not
+            # overlapping
+            fspread = N.mean(N.logical_and(ovstatmap > 0.0,
+                                           ovstatmap < 1.0))
 
             # fraction of overlapping features
             foverlap = N.mean(ovstatmap >= self.__overlap_thr)
