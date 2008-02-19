@@ -204,9 +204,14 @@ class OptimalOverlapThresholder(FeatureSelection):
         if len(container[key]) == split:
             container[key].append([])
 
-        container[key][split].append(
-            self.__transerror(vds.selectFeatures(feature_ids),
-                              wds.selectFeatures(feature_ids)))
+        # assume max error if no features are in the dataset
+        # XXX not sure if this is appropriate
+        if not len(feature_ids):
+            container[key][split].append(1.0)
+        else:
+            container[key][split].append(
+                self.__transerror(vds.selectFeatures(feature_ids),
+                                  wds.selectFeatures(feature_ids)))
 
 
     def computeTransferErrors(self, dataset, smaps, ovstatmaps, ovscores):
