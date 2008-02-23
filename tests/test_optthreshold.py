@@ -12,7 +12,7 @@ import unittest
 import numpy as N
 
 from mvpa.datasets.dataset import Dataset
-from mvpa.datasets.splitter import NFoldSplitter
+from mvpa.datasets.splitter import NFoldSplitter, NoneSplitter
 from mvpa.algorithms.anova import OneWayAnova
 from mvpa.algorithms.featsel import FractionTailSelector
 from mvpa.algorithms.optthreshold import OptimalOverlapThresholder
@@ -63,12 +63,8 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         self.failUnlessEqual(N.array(othr.ovstatmaps).shape,
                              (len(thresholders), data.nfeatures))
 
-#        # by definition full threshold gives full overlap
-#        self.failUnlessEqual(othr.best_thresholder.felements, 1.0)
-#        self.failUnlessEqual(othr.best_thresholder_id, len(thresholders)-1)
         self.failUnlessEqual(N.array(othr.sensitivities).shape,
                              (len(data.uniquechunks), data.nfeatures))
-#        self.failUnless((othr.selected_ids == range(data.nfeatures)).all())
 
         # check score keys
         for k in terr_keys + ovscore_keys:

@@ -70,9 +70,11 @@ class OptimalOverlapThresholder(FeatureSelection):
         StateVariable(enabled=False,
             doc="Thresholderwise transfer error for features not " \
                 "thresholded in the respective split.")
-#    best_thresholder = StateVariable(doc="Thresholder instance causing the "
-#                                         "largest feature overlap")
-#    best_thresholder_id = StateVariable(doc="Id of the best thresholder")
+    opt_thresholder = \
+        StateVariable(enabled=False,
+            doc="Thresholder instance causing the optimal feature set.")
+    opt_thresholder_id = \
+        StateVariable(enabled=True, doc="Id of the best thresholder")
 
 
     def __init__(self,
@@ -81,6 +83,7 @@ class OptimalOverlapThresholder(FeatureSelection):
                  splitter,
                  transerror,
                  overlap_thr=1.0,
+                 opt_crit=None,
                  **kargs):
         """Cheap init.
 
@@ -100,6 +103,9 @@ class OptimalOverlapThresholder(FeatureSelection):
                 Minimum fraction of selections across splits to define an
                 overlap. Default: 1.0, i.e. a feature has to be selected in
                 each split.
+            opt_crit: float [0,1]
+                Maximum transfer ... <fill me in>
+                By default it is set to: 0.9 * 1 / #classes
         """
         # base init first
         FeatureSelection.__init__(self, **kargs)
@@ -109,6 +115,7 @@ class OptimalOverlapThresholder(FeatureSelection):
         self.__splitter = splitter
         self.__transerror = transerror
         self.__overlap_thr = overlap_thr
+        self.__opt_crit = opt_crit
 
 
     def computeSelectionMaps(self, dataset):
@@ -145,6 +152,7 @@ class OptimalOverlapThresholder(FeatureSelection):
 
         # need array for easy access
         return N.array(fold_maps, dtype='bool')
+
 
     @staticmethod
     def computeOverlap(smaps, overlap_thr):
@@ -218,10 +226,10 @@ class OptimalOverlapThresholder(FeatureSelection):
         if len(container[key]) == split:
             container[key].append([])
 
-        # assume max error if no features are in the dataset
-        # XXX not sure if this is appropriate
-        if not len(feature_ids):
-            container[key][split].append(1.0)
+        if wds == None or wds.nfeatures == 0 \
+           or vds == None or vds.nfeatures == 0:
+            # store negative to later mask it out (as negative cannot be)
+            container[key][split].append(-1000)
         else:
             container[key][split].append(
                 self.__transerror(vds.selectFeatures(feature_ids),
@@ -241,12 +249,27 @@ class OptimalOverlapThresholder(FeatureSelection):
 
         # split
         for nfold, (wds, vds) in enumerate(self.__splitter(dataset)):
+            # if the provided splitter does not provide training and validation
+            # dataset no transfer errors can be computed
+            if wds == None or vds == None:
+                raise ValueError, \
+                      "OptimalOverlapThresholder only works with Splitters " \
+                      "that provide training _and_ validation datasets in " \
+                      "each split."
+
             if __debug__:
                 debug('OTHRC', "Compute transfer error(s) for split (%i/%i)" \
                                % (nfold, smaps.shape[0]))
 
             # for every thresholder
             for i, thr in enumerate(self.__thresholders):
+                # always compute transfer error of spread features
+                self.__storeTransferError(
+                    terrs, 'terr_spread', nfold, wds, vds,
+                    dataset.convertFeatureMask2FeatureIds(
+                        N.logical_and(ovstatmaps[i] > 0.0,
+                                      ovstatmaps[i] < 1.0)))
+
                 if self.states.isEnabled("terr_sthr"):
                     self.__storeTransferError(
                         terrs, 'terr_sthr', nfold, wds, vds,
@@ -267,16 +290,16 @@ class OptimalOverlapThresholder(FeatureSelection):
                         terrs, 'terr_nthr', nfold, wds, vds,
                         dataset.convertFeatureMask2FeatureIds(
                                     ovstatmaps[i] == 0))
-                if self.states.isEnabled("terr_spread"):
-                    self.__storeTransferError(
-                        terrs, 'terr_spread', nfold, wds, vds,
-                        dataset.convertFeatureMask2FeatureIds(
-                            N.logical_and(ovstatmaps[i] > 0.0,
-                                          ovstatmaps[i] < 1.0)))
 
         # mean across splits for all computed transfer errors
         for k, v in terrs.iteritems():
-            avg = N.mean(v, axis=0)
+            # first deal with missing values!
+            avg = N.ma.masked_array(v, mask=N.array(v) < 0).mean(axis=0)
+            # make sure that masked values appear to be negative when
+            # filled. The happens when no value was found for not even a
+            # single split for some thresholder. Having such value with
+            # negative sign is used later on to identify them!!
+            avg = N.ma.masked_array(avg, fill_value=-1000)
 
             # store to state
             self.states.set(k, avg)
@@ -306,6 +329,10 @@ class OptimalOverlapThresholder(FeatureSelection):
                 * `Dataset instance with the same thresholding applied to
                   `testdataset` or `None` if no testdataset was supplied.
         """
+        # give default criterion
+        if self.__opt_crit == None:
+            self.__opt_crit = (1.0 / len(dataset.uniquelabels)) * 0.9
+
         verbose(1, "Determine optimal overlap threshold.")
         verbose(4, "Compute sensitivities and store selection maps for all " \
                    "thresholders.")
@@ -323,28 +350,44 @@ class OptimalOverlapThresholder(FeatureSelection):
                                            ovstatmaps,
                                            ovscores)
 
-        # determine largest overlap and associated thresholder
-#        best_thr_id = N.array(thr_scores[self.__overlap_crit]).argmax()
-#        selected_ids = overlap_maps[best_thr_id].nonzero()[0]
+        # criterion looks at transfer error of spread features
+        crit_error = terrs['terr_spread']
+
+        # determine the first terr_spread that drops below the criterion
+        # starting from the thresholder that discard as little as possible
+        # and then for increasing thresholds
+        opt_thr_id = None
+        for thr_id in N.argsort(ovscores['fselected'])[::-1]:
+            # check if transfer errors is less than criterion, but only for
+            # non-masked values
+            if not crit_error[thr_id] < 0 \
+               and crit_error[thr_id] < self.__opt_crit:
+                break
+            else:
+                opt_thr_id = thr_id
+
+        # make list of overlapping features 
+        # ATTN: it might be empty!
+        selected_ids = dataset.convertFeatureMask2FeatureIds(
+                            ovstatmaps[opt_thr_id] >= self.__overlap_thr)
 
         # charge state
         self.fov = N.array(ovscores['fov'])
         self.fspread = N.array(ovscores['fspread'])
         self.fselected = N.array(ovscores['fselected'])
         self.ovstatmaps = N.array(ovstatmaps)
-#
-#        self.best_thresholder_id = best_thr_id
-#        self.best_thresholder = self.__thresholders[best_thr_id]
-#
-#        self.selected_ids = selected_ids
-#
-#        # and select overlapping feature from original dataset(s)
-#        if testdataset:
-#            results = (dataset.selectFeatures(selected_ids),
-#                       testdataset.selectFeatures(selected_ids))
-#        else:
-#            results = (dataset.selectFeatures(selected_ids), None)
-#
-#        return results
-        # for now just return original input
-        return dataset, testdataset
+        self.opt_thresholder_id = opt_thr_id
+        self.opt_thresholder = self.__thresholders[opt_thr_id]
+        self.selected_ids = selected_ids
+
+        verbose(4, "Apply feature selection to original dataset(s).")
+        # XXX: no test for empty selection list for now as passing [] works
+        # it results in a Dataset with no feature -- nee to discuss this
+        # behavior, though
+        if testdataset:
+            results = (dataset.selectFeatures(selected_ids),
+                       testdataset.selectFeatures(selected_ids))
+        else:
+            results = (dataset.selectFeatures(selected_ids), None)
+
+        return results
