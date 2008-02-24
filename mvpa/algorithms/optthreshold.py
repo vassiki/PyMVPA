@@ -226,8 +226,7 @@ class OptimalOverlapThresholder(FeatureSelection):
         if len(container[key]) == split:
             container[key].append([])
 
-        if wds == None or wds.nfeatures == 0 \
-           or vds == None or vds.nfeatures == 0:
+        if wds == None or vds == None or not len(feature_ids):
             # store negative to later mask it out (as negative cannot be)
             container[key][split].append(-1000)
         else:
