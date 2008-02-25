@@ -54,22 +54,42 @@ class OptimalOverlapThresholder(FeatureSelection):
     terr_ov = \
         StateVariable(enabled=False,
             doc="Thresholderwise transfer error for overlapping features.")
+    terr_ov_ste = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise standard error of transfer error for " \
+                "overlapping features.")
     terr_nthr = \
         StateVariable(enabled=False,
             doc="Thresholderwise transfer error for features never " \
                 "thresholded.")
+    terr_nthr_ste = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise standard error of transfer error for " \
+                "features never thresholded.")
     terr_spread = \
         StateVariable(enabled=False,
-            doc="Thresholderwise transfer error for features thresholded at " \
-                "least once but not always.")
+            doc="Thresholderwise transfer error for features thresholded " \
+                "at least once but not always.")
+    terr_spread_ste = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise standard error of transfer error for " \
+                "features thresholded at least once but not always.")
     terr_sthr = \
         StateVariable(enabled=False,
-            doc="Thresholderwise transfer error for features thresholded in " \
-                "the respective split.")
+            doc="Thresholderwise transfer error for features thresholded " \
+                "in the respective split.")
+    terr_sthr_ste = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise standard error of transfer error for " \
+                "features thresholded in the respective split.")
     terr_nsthr = \
         StateVariable(enabled=False,
             doc="Thresholderwise transfer error for features not " \
                 "thresholded in the respective split.")
+    terr_nsthr_ste = \
+        StateVariable(enabled=False,
+            doc="Thresholderwise standard error of transfer error for " \
+                "features not thresholded in the respective split.")
     opt_thresholder = \
         StateVariable(enabled=False,
             doc="Thresholder instance causing the optimal feature set.")
@@ -290,23 +310,33 @@ class OptimalOverlapThresholder(FeatureSelection):
                         dataset.convertFeatureMask2FeatureIds(
                                     ovstatmaps[i] == 0))
 
+        # need to store results in some other dict to not change orginal
+        # one during iteration
+        results = {}
+
         # mean across splits for all computed transfer errors
         for k, v in terrs.iteritems():
             # first deal with missing values!
-            avg = N.ma.masked_array(v, mask=N.array(v) < 0).mean(axis=0)
+            a = N.array(v)
+            ma = N.ma.masked_array(a, mask=a < 0)
+            avg = ma.mean(axis=0)
+            ste = ma.std(axis=0) / N.ma.sqrt(len(v))
             # make sure that masked values appear to be negative when
             # filled. The happens when no value was found for not even a
             # single split for some thresholder. Having such value with
             # negative sign is used later on to identify them!!
             avg = N.ma.masked_array(avg, fill_value=-1000)
+            ste = N.ma.masked_array(ste, fill_value=-1000)
 
             # store to state
             self.states.set(k, avg)
+            self.states.set(k + '_ste', ste)
 
             # prepare return value
-            terrs[k] = avg
+            results[k] = avg
+            results[k + '_ste'] = ste
 
-        return terrs
+        return results
 
 
     def __call__(self, dataset, testdataset=None):
