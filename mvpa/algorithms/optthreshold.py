@@ -16,7 +16,7 @@ import numpy as N
 from mvpa.algorithms.featsel import FeatureSelection
 from mvpa.clfs.transerror import TransferError
 from mvpa.misc.state import StateVariable
-from mvpa.misc import verbose
+from mvpa.misc import verbose, warning
 
 if __debug__:
     from mvpa.misc import debug
@@ -270,45 +270,59 @@ class OptimalOverlapThresholder(FeatureSelection):
         for nfold, (wds, vds) in enumerate(self.__splitter(dataset)):
             # if the provided splitter does not provide training and validation
             # dataset no transfer errors can be computed
-            if wds == None or vds == None:
+            #if wds == None or vds == None:
+            #    raise ValueError, \
+            #          "OptimalOverlapThresholder only works with Splitters " \
+            #          "that provide training _and_ validation datasets in " \
+            #          "each split."
+
+            # if the provided splitter does not provide training
+            # dataset no voxels could be selected of cause
+            if wds == None:
                 raise ValueError, \
                       "OptimalOverlapThresholder only works with Splitters " \
-                      "that provide training _and_ validation datasets in " \
-                      "each split."
+                      "that provide training datasets in each split."
+
+            if vds == None:
+                warning("OptimalOverlapThresholder only works with Splitters " \
+                        "that provide training _and_ validation datasets in " \
+                        "each split. If no validation dataset is provided -- no " \
+                        "optimal set of voxels get selected!")
 
             if __debug__:
                 debug('OTHRC', "Compute transfer error(s) for split (%i/%i)" \
                                % (nfold, smaps.shape[0]))
 
-            # for every thresholder
-            for i, thr in enumerate(self.__thresholders):
-                # always compute transfer error of spread features
-                self.__storeTransferError(
-                    terrs, 'terr_spread', nfold, wds, vds,
-                    dataset.convertFeatureMask2FeatureIds(
-                        N.logical_and(ovstatmaps[i] > 0.0,
-                                      ovstatmaps[i] < 1.0)))
+            if vds != None:
+                # for every thresholder
+                for i, thr in enumerate(self.__thresholders):
+                    # always compute transfer error of spread features
+                    self.__storeTransferError(
+                        terrs, 'terr_spread', nfold, wds, vds,
+                        dataset.convertFeatureMask2FeatureIds(
+                            N.logical_and(ovstatmaps[i] > 0.0,
+                                          ovstatmaps[i] < 1.0)))
 
-                if self.states.isEnabled("terr_sthr"):
-                    self.__storeTransferError(
-                        terrs, 'terr_sthr', nfold, wds, vds,
-                        dataset.convertFeatureMask2FeatureIds(
-                                            smaps[nfold, i] == True))
-                if self.states.isEnabled("terr_nsthr"):
-                    self.__storeTransferError(
-                        terrs, 'terr_nsthr', nfold, wds, vds,
-                        dataset.convertFeatureMask2FeatureIds(
-                                            smaps[nfold, i] == False))
-                if self.states.isEnabled("terr_ov"):
-                    self.__storeTransferError(
-                        terrs, 'terr_ov', nfold, wds, vds,
-                        dataset.convertFeatureMask2FeatureIds(
-                                    ovstatmaps[i] >= self.__overlap_thr))
-                if self.states.isEnabled("terr_nthr"):
-                    self.__storeTransferError(
-                        terrs, 'terr_nthr', nfold, wds, vds,
-                        dataset.convertFeatureMask2FeatureIds(
-                                    ovstatmaps[i] == 0))
+                    if self.states.isEnabled("terr_sthr"):
+                        self.__storeTransferError(
+                            terrs, 'terr_sthr', nfold, wds, vds,
+                            dataset.convertFeatureMask2FeatureIds(
+                                                smaps[nfold, i] == True))
+                    if self.states.isEnabled("terr_nsthr"):
+                        self.__storeTransferError(
+                            terrs, 'terr_nsthr', nfold, wds, vds,
+                            dataset.convertFeatureMask2FeatureIds(
+                                                smaps[nfold, i] == False))
+                    if self.states.isEnabled("terr_ov"):
+                        self.__storeTransferError(
+                            terrs, 'terr_ov', nfold, wds, vds,
+                            dataset.convertFeatureMask2FeatureIds(
+                                        ovstatmaps[i] >= self.__overlap_thr))
+                    if self.states.isEnabled("terr_nthr"):
+                        self.__storeTransferError(
+                            terrs, 'terr_nthr', nfold, wds, vds,
+                            dataset.convertFeatureMask2FeatureIds(
+                                        ovstatmaps[i] == 0))
 
         # need to store results in some other dict to not change orginal
         # one during iteration
@@ -379,6 +393,16 @@ class OptimalOverlapThresholder(FeatureSelection):
                                            ovstatmaps,
                                            ovscores)
 
+        # charge state
+        self.fov = N.array(ovscores['fov'])
+        self.fspread = N.array(ovscores['fspread'])
+        self.fselected = N.array(ovscores['fselected'])
+        self.ovstatmaps = N.array(ovstatmaps)
+
+        if not terrs.has_key('terr_spread'):
+            warning('Cannot determine optimal feature set in OptimalOverlapThresholder')
+            return None
+
         # criterion looks at transfer error of spread features
         crit_error = terrs['terr_spread']
 
@@ -401,10 +425,6 @@ class OptimalOverlapThresholder(FeatureSelection):
                             ovstatmaps[opt_thr_id] >= self.__overlap_thr)
 
         # charge state
-        self.fov = N.array(ovscores['fov'])
-        self.fspread = N.array(ovscores['fspread'])
-        self.fselected = N.array(ovscores['fselected'])
-        self.ovstatmaps = N.array(ovstatmaps)
         self.opt_thresholder_id = opt_thr_id
         self.opt_thresholder = self.__thresholders[opt_thr_id]
         self.selected_ids = selected_ids
