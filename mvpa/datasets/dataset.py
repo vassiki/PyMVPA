@@ -212,7 +212,7 @@ class Dataset(N.ndarray):
             # for a speed up to don't go through all uniqueattributes
             # when no need
             _dsattr['__uniquereseted'] = False
-            # TODO!! reset in __array_finalize__
+            # TODO!!?? reset in __array_finalize__
             #_resetallunique(force=True)
 
         ###### prepare numpy.ndarray
@@ -221,17 +221,19 @@ class Dataset(N.ndarray):
         result = result.view(cls)
         setattr(result, '_data', _data)
         setattr(result, '_dsattr', _dsattr)
+        result._resetallunique(force=True)
 
         # TODO!!: enable checkup of _data
-        # if check_data: self._checkData()
+        if check_data:
+            result._checkData()
         return result
 
 
     def __array_finalize__(self, obj):
         """Copy Dataset's _data and _dsattr."""
-        ## XXX Think about deepcopying!
+        ## TODO!! Think about deepcopying!
         for tag in ['_data', '_dsattr']:
-            setattr(self, tag, getattr(obj, tag, None))
+            setattr(self, tag, copylib.copy(getattr(obj, tag, None)))
         return
 
     @property
@@ -704,6 +706,8 @@ class Dataset(N.ndarray):
         # TODO!! we might need to copy explicitely here since mask can be a slice, thus...
         dataset = self[mask, ]
         dataset._data = data
+        # TODO!! ??? is it needed below actually???
+        #dataset._dsattr = copylib.copy(self._dsattr)
         dataset._resetallunique(force=True)
         return dataset
 
