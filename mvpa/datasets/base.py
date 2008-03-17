@@ -6,13 +6,17 @@
 #   copyright and license terms.
 #
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
-"""Dataset container"""
+"""Dataset container
+
+TODO!! marks specific TODO items adherent to Dataset becoming a kid of ndarray
+"""
 
 __docformat__ = 'restructuredtext'
 
 import operator
 import random
 import mvpa.misc.copy as copy
+
 import numpy as N
 
 from sets import Set
@@ -63,7 +67,7 @@ class Dataset(object):
     no default values would be assumed and construction of the
     instance would fail"""
 
-    def __init__(self,
+    def __new__(cls,
                  # for copy constructor
                  data=None,
                  dsattr=None,
@@ -97,6 +101,24 @@ class Dataset(object):
             the sanity check performed by the previous mode, as for
             internal operations data integrity is assumed.
 
+        # XXX N.array has also following args of the call so...
+        #
+        #  order  - Specify the order of the array.  If order is 'C', then the
+        #            array will be in C-contiguous order (last-index varies the
+        #            fastest).  If order is 'FORTRAN', then the returned array
+        #            will be in Fortran-contiguous order (first-index varies the
+        #            fastest).  If order is None, then the returned array may
+        #            be in either C-, or Fortran-contiguous order or even
+        #            discontiguous.
+        #  subok  - If True, then sub-classes will be passed-through, otherwise
+        #            the returned array will be forced to be a base-class array
+        #  ndmin  - Specifies the minimum number of dimensions that the resulting
+        #            array should have.  1's will be pre-pended to the shape as
+        #            needed to meet this requirement.
+
+        Initialize dataset instance
+
+        TODO!! : adjust according ^^^
 
         :Parameters:
           data : dict
@@ -126,6 +148,7 @@ class Dataset(object):
         already in the `data` container.
 
         """
+
         # see if data and dsattr are none, if so, make them empty dicts
         if data is None:
             data = {}
@@ -135,52 +158,51 @@ class Dataset(object):
         # initialize containers; default values are empty dicts
         # always make a shallow copy of what comes in, otherwise total chaos
         # is likely to happen soon
-        if copy_data:
+        if copy:
             # deep copy (cannot use copy.deepcopy, because samples is an
             # exception
             # but shallow copy first to get a shared version of the data in
             # any case
-            lcl_data = data.copy()
+            _data = data.copy()
             for k, v in data.iteritems():
                 # skip copying samples if requested
                 if k == 'samples' and not copy_samples:
                     continue
-                lcl_data[k] = v.copy()
+                _data[k] = v.copy()
         else:
             # shallow copy
             # XXX? yoh: it might be better speed wise just assign dictionary
             #      without any shallow .copy
-            lcl_data = data.copy()
+            _data = data.copy()
 
         if copy_dsattr and len(dsattr)>0:
             # deep copy
             if __debug__:
                 debug('DS', "Deep copying dsattr %s" % `dsattr`)
-            lcl_dsattr = copy.deepcopy(dsattr)
+            _dsattr = copy.deepcopy(dsattr)
 
         else:
             # shallow copy
-            lcl_dsattr = copy.copy(dsattr)
-
-        # has to be not private since otherwise derived methods
-        # would have problem accessing it and _registerAttribute
-        # would fail on lambda getters
-        self._data = lcl_data
-        """What makes a dataset."""
-
-        self._dsattr = lcl_dsattr
-        """Dataset attriibutes."""
+            _dsattr = copy.copy(dsattr)
 
         # store samples (and possibly transform/reshape/retype them)
         if not samples == None:
             if __debug__:
-                if self._data.has_key('samples'):
+                if _data.has_key('samples'):
                     debug('DS',
                           "`Data` dict has `samples` (%s) but there is also" +
                           " __init__ parameter `samples` which overrides " +
-                          " stored in `data`" % (`self._data['samples'].shape`))
-            self._data['samples'] = self._shapeSamples(samples, dtype,
-                                                        copy_samples)
+                          " stored in `data`" % (`_data['samples'].shape`))
+            if __debug__:
+                debug('DS', "Assigning samples")
+            _data['samples'] = Dataset._shapeSamples(samples, dtype,
+                                                     copy_samples)
+
+        if _data.has_key('samples'):
+            # we have done everything correct so far ;-)
+            nsamples = _data['samples'].shape[0]
+        else:
+            raise DatasetError, "No samples data was provided"
 
         # TODO? we might want to have the same logic for chunks and labels
         #       ie if no labels present -- assign arange
@@ -188,38 +210,38 @@ class Dataset(object):
         # labels
         if not labels == None:
             if __debug__:
-                if self._data.has_key('labels'):
+                if _data.has_key('labels'):
                     debug('DS',
                           "`Data` dict has `labels` (%s) but there is also" +
                           " __init__ parameter `labels` which overrides " +
-                          " stored in `data`" % (`self._data['labels']`))
-            if self._data.has_key('samples'):
-                self._data['labels'] = \
-                    self._expandSampleAttribute(labels, 'labels')
+                          " stored in `data`" % (`_data['labels']`))
+            if _data.has_key('samples'):
+                _data['labels'] = \
+                    Dataset._expandSampleAttribute(nsamples, labels, 'labels')
 
         # check if we got all required attributes
-        for attr in self._requiredattributes:
-            if not self._data.has_key(attr):
+        for attr in Dataset._requiredattributes:
+            if not _data.has_key(attr):
                 raise DatasetError, \
                       "Attribute %s is required to initialize dataset" % \
                       attr
 
         # chunks
         if not chunks == None:
-            self._data['chunks'] = \
-                self._expandSampleAttribute(chunks, 'chunks')
-        elif not self._data.has_key('chunks'):
+            _data['chunks'] = \
+                Dataset._expandSampleAttribute(nsamples, chunks, 'chunks')
+        elif not _data.has_key('chunks'):
             # if no chunk information is given assume that every pattern
             # is its own chunk
-            self._data['chunks'] = N.arange(self.nsamples)
+            _data['chunks'] = N.arange(nsamples)
 
         # samples origids
         if not origids is None:
             # simply assign if provided
-            self._data['origids'] = origids
-        elif not self._data.has_key('origids'):
+            _data['origids'] = origids
+        elif not _data.has_key('origids'):
             # otherwise contruct unqiue ones
-            self._data['origids'] = N.arange(len(self._data['labels']))
+            _data['origids'] = N.arange(len(_data['labels']))
         else:
             # assume origids have been specified already (copy constructor
             # mode) leave them as they are, e.g. to make origids survive
@@ -227,14 +249,11 @@ class Dataset(object):
             pass
 
         # Initialize attributes which are registered but were not setup
-        for attr in self._registeredattributes:
-            if not self._data.has_key(attr):
+        for attr in Dataset._registeredattributes:
+            if not _data.has_key(attr):
                 if __debug__:
                     debug("DS", "Initializing attribute %s" % attr)
-                self._data[attr] = N.zeros(self.nsamples)
-
-        if check_data:
-            self._checkData()
+                _data[attr] = N.zeros(nsamples)
 
         # lazy computation of unique members
         #self._resetallunique('_dsattr', self._dsattr)
@@ -245,8 +264,28 @@ class Dataset(object):
         if not labels is None or not chunks is None:
             # for a speed up to don't go through all uniqueattributes
             # when no need
-            self._dsattr['__uniquereseted'] = False
-            self._resetallunique(force=True)
+            _dsattr['__uniquereseted'] = False
+            # TODO!! reset in __array_finalize__
+            #_resetallunique(force=True)
+
+        ###### prepare numpy.ndarray
+        # pop out 'samples' and make them THE object for now
+        result = N.array(_data.pop('samples'))
+        result = result.view(cls)
+        setattr(result, '_data', _data)
+        setattr(result, '_dsattr', _dsattr)
+
+        # TODO!!: enable checkup of _data
+        # if check_data: self._checkData()
+        return result
+
+
+    def __array_finalize__(self, obj):
+        """Copy Dataset's _data and _dsattr."""
+        ## XXX Think about deepcopying!
+        for tag in ['_data', '_dsattr']:
+            setattr(self, tag, getattr(obj, tag, None))
+        return
 
 
     __doc__ = enhancedDocString('Dataset', locals())
@@ -258,7 +297,7 @@ class Dataset(object):
 
         Like if classifier was trained on the same dataset as in question"""
 
-        res = idhash_(self._data)
+        res = idhash_(self._data) + idhash(cls)
 
         # we cannot count on the order the values in the dict will show up
         # with `self._data.value()` and since idhash will be order-dependent
@@ -407,7 +446,8 @@ class Dataset(object):
         return list(transitions)
 
 
-    def _shapeSamples(self, samples, dtype, copy):
+    @staticmethod
+    def _shapeSamples(samples, dtype, copy):
         """Adapt different kinds of samples
 
         Handle all possible input value for 'samples' and tranform
@@ -463,24 +503,25 @@ class Dataset(object):
             raise DatasetError, "Samples IDs are not unique."
 
 
-    def _expandSampleAttribute(self, attr, attr_name):
+    @staticmethod
+    def _expandSampleAttribute(nsamples, attr, attr_name):
         """If a sample attribute is given as a scalar expand/repeat it to a
         length matching the number of samples in the dataset.
         """
         try:
-            if len(attr) != self.nsamples:
+            if len(attr) != nsamples:
                 raise DatasetError, \
                       "Length of sample attribute '%s' [%d]" \
                       % (attr_name, len(attr)) \
                       + " has to match the number of samples" \
-                      + " [%d]." % self.nsamples
+                      + " [%d]." % nsamples
             # store the sequence as array
             return N.array(attr)
 
         except TypeError:
             # make sequence of identical value matching the number of
             # samples
-            return N.repeat(attr, self.nsamples)
+            return N.repeat(attr, nsamples)
 
 
     @classmethod
@@ -622,28 +663,40 @@ class Dataset(object):
         return s
 
 
-    def __iadd__( self, other ):
+    def __iadd__(self, other):
         """Merge the samples of one Dataset object to another (in-place).
 
         No dataset attributes will be merged! Additionally, a new set of
         unique `origids` will be generated.
         """
-        if not self.nfeatures == other.nfeatures:
-            raise DatasetError, "Cannot add Dataset, because the number of " \
-                                "feature do not match."
+        if isinstance(other, Dataset):
+            if not self.nfeatures == other.nfeatures:
+                raise DatasetError, "Cannot add Dataset, because the number of " \
+                                    "feature do not match."
 
-        # concatenate all sample attributes
-        for k, v in self._data.iteritems():
-            if k == 'origids':
-                # special case samples origids: for now just regenerate unique
-                # ones could also check if concatenation is unique, but it
-                # would be costly performance-wise
-                self._data[k] = N.arange(len(v) + len(other._data[k]))
-            else:
-                self._data[k] = N.concatenate((v, other._data[k]), axis=0)
+            # if we deal with Datasets, we do our own semantics here
+            out = N.concatenate( (self, other) )
+            out = out.view(self.__class__)
 
-        # might be more sophisticated but for now just reset -- it is safer ;)
-        self._resetallunique()
+            _data = {}
+            # concatenate all sample attributes
+            for k, v in self._data.iteritems():
+                if k == 'origids':
+                    # special case samples origids: for now just regenerate unique
+                    # ones could also check if concatenation is unique, but it
+                    # would be costly performance-wise
+                    _data[k] = N.arange(len(v) + len(other._data[k]))
+                else:
+                    _data[k] = N.concatenate((v, other._data[k]), axis=0)
+
+            setattr(out, '_data', _data)
+            setattr(out, '_dsattr', self._dsattr)
+            # might be more sophisticated but for now just reset -- it is safer ;)
+            out._resetallunique()
+            self = out
+        else:
+            # just  call ndarray's iadd
+            self = super(Dataset, self).__iadd__(other)
 
         return self
 
@@ -657,19 +710,10 @@ class Dataset(object):
         NOTE: This can be a costly operation (both memory and time). If
         performance is important consider the '+=' operator.
         """
-        # create a new object of the same type it is now and NOT onyl Dataset
-        out = super(Dataset, self).__new__(self.__class__)
 
-        # now init it: to make it work all Dataset contructors have to accept
-        # Class(data=Dict, dsattr=Dict)
-        out.__init__(data=self._data,
-                     dsattr=self._dsattr,
-                     copy_samples=True,
-                     copy_data=True,
-                     copy_dsattr=True)
-
+        # create a new object as a copy of current
+        out = self.copy()
         out += other
-
         return out
 
 
@@ -705,11 +749,18 @@ class Dataset(object):
         # shallow-copy all stuff from current data dict
         new_data = self._data.copy()
 
+        dataset = self[:, ids]
+        dataset._data = new_data
+        dataset._resetallunique()
+
+        return dataset
+
+        # TODO!!: check below code and wipe it out if indeed not needed
         # assign the selected features -- data is still shared with
         # current dataset
-        new_data['samples'] = self._data['samples'][:, ids]
+        new_data['samples'] = self[:, ids]
 
-        # create a new object of the same type it is now and NOT onyl Dataset
+        # create a new object of the same type it is now and NOT only Dataset
         dataset = super(Dataset, self).__new__(self.__class__)
 
         # now init it: to make it work all Dataset contructors have to accept
@@ -718,7 +769,7 @@ class Dataset(object):
                          dsattr=self._dsattr,
                          check_data=False,
                          copy_samples=False,
-                         copy_data=False,
+                         copy=False,
                          copy_dsattr=False
                          )
 
@@ -752,18 +803,25 @@ class Dataset(object):
             if __debug__:
                 debug("DS", "Applying featuresmapper %s" % `featuresmapper` +
                       " to samples of dataset `%s`" % `self`)
-            new_data['samples'] = featuresmapper.forward(self._data['samples'])
+            dataset = featuresmapper.forward(self)
 
+        dataset._data = new_data
+        dataset._resetallunique()
+
+        return dataset
+
+        # TODO!! check below
         # create a new object of the same type it is now and NOT only Dataset
         dataset = super(Dataset, self).__new__(self.__class__)
 
         # now init it: to make it work all Dataset contructors have to accept
         # Class(data=Dict, dsattr=Dict)
-        dataset.__init__(data=new_data,
+        dataset.__init__(samples=new_data,
+                         data=new_data,
                          dsattr=self._dsattr,
                          check_data=False,
                          copy_samples=False,
-                         copy_data=False,
+                         copy=False,
                          copy_dsattr=False
                          )
 
@@ -806,6 +864,13 @@ class Dataset(object):
         for k, v in self._data.iteritems():
             data[k] = v[ids, ]
 
+        # TODO!! we might need to copy explicitely here since mask can be a slice, thus...
+        dataset = self[mask, ]
+        dataset._data = data
+        dataset._resetallunique(force=True)
+        return dataset
+
+        #TODO!! check code below and remove
         # create a new object of the same type it is now and NOT onyl Dataset
         dataset = super(Dataset, self).__new__(self.__class__)
 
@@ -815,10 +880,10 @@ class Dataset(object):
                          dsattr=self._dsattr,
                          check_data=False,
                          copy_samples=False,
-                         copy_data=False,
+                         copy=False,
                          copy_dsattr=False)
 
-        dataset._resetallunique(force=True)
+
         return dataset
 
 
@@ -932,20 +997,21 @@ class Dataset(object):
     def getNSamples( self ):
         """Currently available number of patterns.
         """
-        return self._data['samples'].shape[0]
+        return self.shape[0]
 
 
     def getNFeatures( self ):
         """Number of features per pattern.
         """
-        return self._data['samples'].shape[1]
+        return self.shape[1]
 
 
     def setSamplesDType(self, dtype):
         """Set the data type of the samples array.
         """
-        if self._data['samples'].dtype != dtype:
-            self._data['samples'] = self._data['samples'].astype(dtype)
+        # change the underlying datatype
+        if self.dtype != dtype:
+            self = self.astype(dtype)
 
 
     def convertFeatureIds2FeatureMask(self, ids):
@@ -982,11 +1048,11 @@ class Dataset(object):
     # read-only class properties
     nsamples        = property( fget=getNSamples )
     nfeatures       = property( fget=getNFeatures )
-
+    samples         = property( fget=lambda x:x )
 
 
 # Following attributes adherent to the basic dataset
-Dataset._registerAttribute("samples", "_data", hasunique=False)
+#Dataset._registerAttribute("samples", "_data", hasunique=False)
 Dataset._registerAttribute("labels",  "_data", hasunique=True)
 Dataset._registerAttribute("chunks",  "_data", hasunique=True)
 # samples ids (already unique by definition)

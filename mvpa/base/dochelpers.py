@@ -46,8 +46,11 @@ def enhancedDocString(name, lcl, *args):
     docs = []
     docs += [ handleDocString(lcl['__doc__']),
               rstUnderline('Constructor information for `%s` class' % name,
-                           rst_lvlmarkup[2]),
-              handleDocString(lcl['__init__'].__doc__) ]
+                           rst_lvlmarkup[2]) ]
+    if lcl.has_key('__init__'):
+        docs += [ handleDocString(lcl['__init__'].__doc__) ]
+    elif lcl.has_key('__new__'):
+        docs += [ handleDocString(lcl['__new__'].__doc__) ]
 
     if len(args):
         docs.append(rstUnderline('\nDocumentation for base classes of `%s`' \
