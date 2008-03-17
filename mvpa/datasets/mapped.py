@@ -14,7 +14,8 @@ import mvpa.misc.copy as copy
 
 from mvpa.datasets import Dataset
 from mvpa.base.dochelpers import enhancedDocString
-
+if __debug__:
+    from mvpa.base import debug
 
 class MappedDataset(Dataset):
     """A `Dataset` which is created by applying a `Mapper` to the data.
@@ -34,8 +35,8 @@ class MappedDataset(Dataset):
     indirectly through one of its subclasses (e.g. `MaskedDataset).
     """
 
-    def __init__(self, samples=None, mapper=None, dsattr=None, **kwargs):
-        """Initialize `MaskedDataset`
+    def __new__(cls, samples=None, mapper=None, dsattr=None, **kwargs):
+        """Create and initialize `MaskedDataset`
 
         If `samples` and `mapper` arguments are not `None` the mapper is
         used to forward-map the samples array and the result is passed
@@ -72,12 +73,14 @@ class MappedDataset(Dataset):
                 raise ValueError, \
                       "Constructor of MappedDataset requires a mapper " \
                       "if unmapped samples are provided."
-            Dataset.__init__(self,
-                             samples=mapper.forward(samples),
-                             dsattr=dsattr,
-                             **(kwargs))
-        else:
-            Dataset.__init__(self, dsattr=dsattr, **(kwargs))
+            samples = mapper.forward(samples)
+
+        dataset = Dataset.__new__(cls,
+                                  samples=samples,
+                                  dsattr=dsattr,
+                                  **(kwargs))
+
+        return dataset
 
 
     __doc__ = enhancedDocString('MappedDataset', locals(), Dataset)
@@ -115,11 +118,17 @@ class MappedDataset(Dataset):
 
         # call base method to get selected feature subset
         if plain:
+            if __debug__:
+                debug('DS_',
+                      "MappedDataset.selectFeature creates plain Dataset")
             sdata = Dataset(self._data, self._dsattr, check_data=False,
                             copy_samples=False, copy_data=False,
                             copy_dsattr=False)
             return sdata.selectFeatures(ids, sort)
         else:
+            if __debug__:
+                debug('DS_',
+                      "MappedDataset.selectFeature calls Dataset.selectFeature")
             sdata = Dataset.selectFeatures(self, ids)
             # since we have new DataSet we better have a new mapper
             sdata._dsattr['mapper'] = copy.deepcopy(sdata._dsattr['mapper'])

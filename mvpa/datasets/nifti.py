@@ -31,7 +31,7 @@ class NiftiDataset(MaskedDataset):
     """
     # XXX: Every dataset should really have an example of howto instantiate
     #      it (necessary parameters).
-    def __init__(self, samples=None, mask=None, dsattr=None, **kwargs):
+    def __new__(cls, samples=None, mask=None, dsattr=None, **kwargs):
         """Initialize NiftiDataset.
 
         :Parameters:
@@ -95,11 +95,11 @@ class NiftiDataset(MaskedDataset):
         # if mask is a Mapper already, this is a cheap init. This is
         # important as this is the default mode for the copy constructor
         # and might be called really often!!
-        MaskedDataset.__init__(self,
-                               samples=samples,
-                               mask=mask,
-                               dsattr=dsattr,
-                               **(kwargs))
+        dataset = MaskedDataset.__new__(cls,
+                                         samples=samples,
+                                         mask=mask,
+                                         dsattr=dsattr,
+                                         **(kwargs))
 
 
         if set_elementsize:
@@ -112,9 +112,11 @@ class NiftiDataset(MaskedDataset):
 
             # 'voxdim' is (x,y,z) while 'samples' are (t,z,y,x)
             elementsize = [i for i in reversed(nifti.voxdim)]
-            self.mapper.setMetric(
+            dataset.mapper.setMetric(
                         DescreteMetric(elementsize=elementsize,
                                        distance_function=cartesianDistance))
+
+        return dataset
 
 
     def map2Nifti(self, data=None):

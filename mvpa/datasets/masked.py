@@ -26,8 +26,8 @@ class MaskedDataset(MappedDataset):
 
     """
 
-    def __init__(self, samples=None, mask=None, **kwargs):
-        """Initialize `MaskedDataset` instance
+    def __new__(cls, samples=None, mask=None, **kwargs):
+        """Create `MaskedDataset` instance
 
         :Parameters:
           - `mask`: an ndarray where the chosen features equal the non-zero
@@ -57,13 +57,15 @@ class MaskedDataset(MappedDataset):
                                                           `samples.shape[1:]`)
             # init base class -- MappedDataset takes care of all the forward
             # mapping stuff
-            MappedDataset.__init__(self,
-                                   samples=samples,
-                                   mapper=DenseArrayMapper(mask),
-                                   **(kwargs))
+            dataset = MappedDataset.__new__(cls,
+                                            samples=samples,
+                                            mapper=DenseArrayMapper(mask),
+                                            **(kwargs))
 
         else:
-            MappedDataset.__init__(self, **(kwargs))
+            dataset = MappedDataset.__new__(cls, **(kwargs))
+
+        return dataset
 
 
     def selectFeaturesByMask(self, mask, plain=False):
