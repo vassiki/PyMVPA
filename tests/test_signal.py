@@ -28,13 +28,13 @@ class SignalTests(unittest.TestCase):
         target_all = N.array( [[-1.0, 0, 1, 1, 0, -1],
                                [2, 0, -2, -2, 0, 2]], ndmin=2 ).T
 
-        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy_samples=True)
+        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=False)
 
         self.failUnless(linalg.norm(ds.samples - target_all) < thr,
                         msg="Detrend should have detrended all the samples at once")
 
-        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy_samples=True)
+        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=True)
 
         self.failUnless(linalg.norm(ds.samples) < thr,
@@ -46,18 +46,18 @@ class SignalTests(unittest.TestCase):
 
         # small additional test for break points
         ds = Dataset(samples=N.array([[1.0, 2, 3, 1, 2, 3]], ndmin=2).T,
-                     labels=chunks, chunks=chunks, copy_samples=True)
+                     labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=True)
         self.failUnless(linalg.norm(ds.samples) < thr,
                         msg="Detrend should have removed all the signal")
 
         # tests of the regress version of detrend
-        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy_samples=True)
+        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=False, model='regress', polort=1)
         self.failUnless(linalg.norm(ds.samples - target_all) < thr,
                         msg="Detrend should have detrended all the samples at once")
 
-        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy_samples=True)
+        ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         (res, reg) = detrend(ds, perchunk=True, model='regress', polort=2)
         psamps = ds.samples.copy()
         self.failUnless(linalg.norm(ds.samples) < thr,
@@ -66,7 +66,7 @@ class SignalTests(unittest.TestCase):
         self.failUnless(ds.samples.shape == samples.shape,
                         msg="Detrend must preserve the size of dataset")
 
-        ods = Dataset(samples=samples, labels=chunks, chunks=chunks, copy_samples=True)
+        ods = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         opt_reg = reg[N.ix_(range(reg.shape[0]),[1,2,4,5])]
         (ores, oreg) = detrend(ods, perchunk=True, model='regress', opt_reg=opt_reg)
         self.failUnless((ods.samples - psamps).sum() == 0.0,
@@ -75,7 +75,7 @@ class SignalTests(unittest.TestCase):
 
         self.failUnless(linalg.norm(ds.samples) < thr,
                         msg="Detrend should have detrended each chunk separately")
-        
+
 
 def suite():
     return unittest.makeSuite(SignalTests)
