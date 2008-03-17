@@ -92,9 +92,9 @@ class MappedDataset(Dataset):
             if __debug__:
                 debug('DS_',
                       "MappedDataset.selectFeature creates plain Dataset")
-            sdata = Dataset(self._data, self._dsattr, check_data=False,
-                            copy_samples=False, copy_data=False,
-                            copy_dsattr=False)
+            # TODO!! may be worth simply copying sdata and calling selectFeatures?
+            sdata = Dataset(samples=self, data=self._data, dsattr=self._dsattr,
+                            check_data=False, copy=False, copy_data=False, copy_dsattr=False)
             return sdata.selectFeatures(ids, sort)
         else:
             if __debug__:
