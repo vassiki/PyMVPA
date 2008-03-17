@@ -142,7 +142,7 @@ def __detrend_regress(data, perchunk=True, polort=None, opt_reg=None):
 
     # remove all but the residuals
     yhat = N.dot(regs, res[0])
-    data.samples -= yhat
+    data -= yhat
 
     # return the results
     return res, regs
