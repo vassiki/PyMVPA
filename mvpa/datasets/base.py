@@ -67,6 +67,7 @@ class Dataset(object):
     no default values would be assumed and construction of the
     instance would fail"""
 
+
     def __new__(cls,
                  # for copy constructor
                  data=None,
@@ -158,7 +159,7 @@ class Dataset(object):
         # initialize containers; default values are empty dicts
         # always make a shallow copy of what comes in, otherwise total chaos
         # is likely to happen soon
-        if copy:
+        if copy_data:                   # XXX or just copy?
             # deep copy (cannot use copy.deepcopy, because samples is an
             # exception
             # but shallow copy first to get a shared version of the data in
@@ -166,7 +167,7 @@ class Dataset(object):
             _data = data.copy()
             for k, v in data.iteritems():
                 # skip copying samples if requested
-                if k == 'samples' and not copy_samples:
+                if k == 'samples' and not copy:
                     continue
                 _data[k] = v.copy()
         else:
@@ -196,7 +197,7 @@ class Dataset(object):
             if __debug__:
                 debug('DS', "Assigning samples")
             _data['samples'] = Dataset._shapeSamples(samples, dtype,
-                                                     copy_samples)
+                                                     copy)
 
         if _data.has_key('samples'):
             # we have done everything correct so far ;-)
