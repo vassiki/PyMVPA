@@ -678,8 +678,29 @@ class Dataset(N.ndarray):
 
 		return self._getitem(*args, params)
 
+    @staticmethod
+    def _getitemargs(*args):
+        """
+        Compose a query for __getitem__, so
+        _getitemargs( slice, None )
+        just gets (slice,)
+        so we pretty much need to exclude Nones
+        """
+        out = args[0]
+        if isinstance(args[0], tuple):
+            for item in args[0]:
+                if not item is None:
+                    out += args[0]
+                else:
+                    # we shouldn't go further
+                    break
+        return out
 
-    def _getitem(self, *args, params):
+    def _getitem(self, dim1, dim2, params):
+        """Dataset getter. We allow only two args to specify selection,
+        since Dataset contains with 2D
+        """
+        
         item = super(self.__class__, self).__getitem__(*args)
         return item
 
