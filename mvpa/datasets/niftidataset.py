@@ -123,7 +123,7 @@ class NiftiDataset(MaskedDataset):
             would wrap samples of the current dataset
         """
         if data is None:
-            data = self.samples
+            data = self
         dsarray = self.mapper.reverse(data)
         return NiftiImage(dsarray, self.niftihdr)
 

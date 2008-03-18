@@ -42,7 +42,7 @@ class OneWayAnova(SensitivityAnalyzer):
 
         # split by groups -> [groups x [samples x features]]
         for ul in dataset.uniquelabels:
-            ul_samples = dataset.samples[dataset.labels == ul]
+            ul_samples = dataset[dataset.labels == ul]
             means.append(ul_samples.mean(axis=0))
             vars_.append(ul_samples.var(axis=0))
 

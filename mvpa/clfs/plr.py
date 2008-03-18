@@ -65,7 +65,7 @@ class PLR(Classifier):
         """Train the classifier using `data` (`Dataset`).
         """
         # Set up the environment for fitting the data
-        X = data.samples.T
+        X = data.T
         d = data.labels
         if not list(set(d)) == [0, 1]:
             raise ValueError, \

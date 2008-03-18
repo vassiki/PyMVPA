@@ -40,7 +40,7 @@ class SMLRTests(unittest.TestCase):
         # more interesting: absent bias disallows to learn data you
         # have here -- there is no solution which would pass through
         # (0,0)
-        predictions = clf.predict(data.samples)
+        predictions = clf.predict(data)
         self.failUnless((predictions == data.labels).all())
 
 
@@ -54,7 +54,7 @@ class SMLRTests(unittest.TestCase):
         clf.states.enable('values')
         clf.states.enable('predictions')
 
-        p = N.asarray(clf.predict(data.samples))
+        p = N.asarray(clf.predict(data))
 
         self.failUnless((p == clf.predictions).all())
         self.failUnless(N.array(clf.values).shape[0] == N.array(p).shape[0])

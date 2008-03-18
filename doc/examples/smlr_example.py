@@ -55,7 +55,7 @@ smlr.states.enable('values')
 smlr.train(trainpat)
 
 # run the predictions on the test values
-pre = smlr.predict(testpat.samples)
+pre = smlr.predict(testpat)
 
 # calculate the confusion matrix
 smlr_confusion = ConfusionMatrix(
@@ -73,7 +73,7 @@ lsvm.states.enable('values')
 lsvm.train(trainpat)
 
 # run the predictions on the test values
-pre = lsvm.predict(testpat.samples)
+pre = lsvm.predict(testpat)
 
 # calculate the confusion matrix
 lsvm_confusion = ConfusionMatrix(
@@ -91,7 +91,7 @@ newtestpat = testpat.selectFeatures(keepInd, sort=False)
 lsvm.train(newtrainpat)
 
 # run the predictions on the test values
-pre = lsvm.predict(newtestpat.samples)
+pre = lsvm.predict(newtestpat)
 
 # calculate the confusion matrix
 lsvm_confusion_sparse = ConfusionMatrix(

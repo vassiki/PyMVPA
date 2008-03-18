@@ -176,10 +176,10 @@ class SVMBase(Classifier):
         """Train SVM
         """
         # libsvm needs doubles
-        if data.samples.dtype == 'float64':
-            src = data.samples
+        if data.dtype == 'float64':
+            src = data
         else:
-            src = data.samples.astype('double')
+            src = data.astype('double')
 
         svmprob = svm.SVMProblem( data.labels.tolist(), src )
 
@@ -187,7 +187,7 @@ class SVMBase(Classifier):
         #pydb.debugger()
         if self.__C < 0 and \
                self.param.svm_type in [svm.svmc.C_SVC]:
-            self.param.C = self._getDefaultC(data.samples)*abs(self.__C)
+            self.param.C = self._getDefaultC(data)*abs(self.__C)
 
         self.__model = svm.SVMModel(svmprob, self.param)
 

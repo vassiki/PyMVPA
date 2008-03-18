@@ -74,7 +74,7 @@ class RidgeReg(Classifier):
 
         # add the penalty term
         a = N.concatenate( \
-            (N.concatenate((data.samples, N.ones((data.nsamples, 1))), 1),
+            (N.concatenate((data, N.ones((data.nsamples, 1))), 1),
                 N.concatenate((Lambda, N.zeros((data.nfeatures, 1))), 1)))
         b = N.concatenate((data.labels, N.zeros(data.nfeatures)))
 

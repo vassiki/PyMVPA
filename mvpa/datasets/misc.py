@@ -39,8 +39,8 @@ def zscore(dataset, mean = None, std = None,
     calculated individually.
     """
     # cast to floating point datatype if necessary
-    if str(dataset.samples.dtype).startswith('uint') \
-       or str(dataset.samples.dtype).startswith('int'):
+    if str(dataset.dtype).startswith('uint') \
+       or str(dataset.dtype).startswith('int'):
         dataset.setSamplesDType(targetdtype)
 
     def doit(samples, mean, std, statsamples=None):
@@ -76,18 +76,18 @@ def zscore(dataset, mean = None, std = None,
             slicer = N.where(dataset.chunks == c)[0]
             if not statids is None:
                 statslicer = list(statids.intersection(Set(slicer)))
-                dataset.samples[slicer] = doit(dataset.samples[slicer],
+                dataset[slicer] = doit(dataset[slicer],
                                                mean, std,
-                                               dataset.samples[statslicer])
+                                               dataset[statslicer])
             else:
-                slicedsamples = dataset.samples[slicer]
-                dataset.samples[slicer] = doit(slicedsamples,
+                slicedsamples = dataset[slicer]
+                dataset[slicer] = doit(slicedsamples,
                                                mean, std,
                                                slicedsamples)
     elif statids is None:
-        doit(dataset.samples, mean, std, dataset.samples)
+        doit(dataset, mean, std, dataset)
     else:
-        doit(dataset.samples, mean, std, dataset.samples[list(statids)])
+        doit(dataset, mean, std, dataset[list(statids)])
 
 
 
@@ -99,7 +99,7 @@ def aggregateFeatures(dataset, fx):
 
     Returns a new `Dataset` object with the aggregated feature(s).
     """
-    agg = fx(dataset.samples, axis=1)
+    agg = fx(dataset, axis=1)
 
     return Dataset(samples=N.array(agg, ndmin=2).T,
                    labels=dataset.labels,

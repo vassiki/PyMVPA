@@ -62,8 +62,8 @@ class kNN(Classifier):
         self.__data = data
         if __debug__:
             if not kNN.__warned and \
-                str(data.samples.dtype).startswith('uint') \
-                or str(data.samples.dtype).startswith('int'):
+                str(data.dtype).startswith('uint') \
+                or str(data.dtype).startswith('int'):
                 kNN.__warned = True
                 warning("kNN: input data is in integers. " + \
                         "Overflow on arithmetic operations might result in"+\
@@ -102,7 +102,7 @@ class kNN(Classifier):
             # patterns in the training data
             dists = N.sqrt(
                         N.sum(
-                            (self.__data.samples - p )**2, axis=1
+                            (self.__data - p )**2, axis=1
                             )
                         )
             # get the k nearest neighbours from the sorted list of distances

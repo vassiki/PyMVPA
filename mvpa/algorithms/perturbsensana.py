@@ -63,7 +63,7 @@ class PerturbationSensitivityAnalyzer(SensitivityAnalyzer):
         # first cast to floating point dtype, because noise is most likely
         # floating point as well and '+=' on int would not do the right thing
         # XXX should we already deepcopy here to keep orig dtype?
-        if not N.issubdtype(dataset.samples.dtype, N.float):
+        if not N.issubdtype(dataset.dtype, N.float):
             dataset.setSamplesDType('float32')
 
         if __debug__:
@@ -87,7 +87,7 @@ class PerturbationSensitivityAnalyzer(SensitivityAnalyzer):
             wdata = deepcopy(dataset)
 
             # add noise to current feature
-            wdata.samples[:, feature] += self.__noise(size=wdata.nsamples)
+            wdata[:, feature] += self.__noise(size=wdata.nsamples)
 
             # compute the datameasure on the perturbed dataset
             perturbed_measure = self.__datameasure(wdata)

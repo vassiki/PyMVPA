@@ -433,7 +433,7 @@ class TransferError(ClassifierError):
         Returns a scalar value of the transfer error.
         """
 
-        predictions = self.clf.predict(testdataset.samples)
+        predictions = self.clf.predict(testdataset)
 
         # compute confusion matrix
         # XXX should migrate into ClassifierError.__postcall?

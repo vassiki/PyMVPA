@@ -32,7 +32,7 @@ class PLRTests(unittest.TestCase):
         clf.train(data)
 
         # prediction has to be perfect
-        self.failUnless((clf.predict(data.samples) == data.labels).all())
+        self.failUnless((clf.predict(data) == data.labels).all())
 
     def testPLRState(self):
         data = dumbFeatureDataset()
@@ -44,7 +44,7 @@ class PLRTests(unittest.TestCase):
         clf.states.enable('values')
         clf.states.enable('predictions')
 
-        p = clf.predict(data.samples)
+        p = clf.predict(data)
 
         self.failUnless((p == clf.predictions).all())
         self.failUnless(N.array(clf.values).shape == N.array(p).shape)

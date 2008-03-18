@@ -58,17 +58,17 @@ class SVMTests(unittest.TestCase):
 
             # use non-linear CLF on 2d data
             nl_clf.train(train)
-            p_mv = nl_clf.predict(test.samples)
+            p_mv = nl_clf.predict(test)
             mv_perf.append(N.mean(p_mv==test.labels))
 
             # use linear CLF on 2d data
             l_clf.train(train)
-            p_lin_mv = l_clf.predict(test.samples)
+            p_lin_mv = l_clf.predict(test)
             mv_lin_perf.append(N.mean(p_lin_mv==test.labels))
 
             # use non-linear CLF on 1d data
             nl_clf.train(train.selectFeatures([0]))
-            p_uv = nl_clf.predict(test.selectFeatures([0]).samples)
+            p_uv = nl_clf.predict(test.selectFeatures([0]))
             uv_perf.append(N.mean(p_uv==test.labels))
 
         mean_mv_perf = N.mean(mv_perf)

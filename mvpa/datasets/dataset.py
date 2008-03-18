@@ -490,7 +490,7 @@ class Dataset(N.ndarray):
         """String summary over the object
         """
         s = """<Dataset / %s %d x %d""" % \
-                   (self.samples.dtype, self.nsamples, self.nfeatures)
+                   (self.dtype, self.nsamples, self.nfeatures)
 
         if not full:
             return s                    # enough is enough
@@ -863,9 +863,7 @@ class Dataset(N.ndarray):
     # read-only class properties
     nsamples        = property( fget=getNSamples )
     nfeatures       = property( fget=getNFeatures )
-    samples         = property( fget=lambda x:x )
 
 # Following attributes adherent to the basic dataset
-#Dataset._registerAttribute("samples", "_data", hasunique=False)
 Dataset._registerAttribute("labels",  "_data", hasunique=True)
 Dataset._registerAttribute("chunks",  "_data", hasunique=True)

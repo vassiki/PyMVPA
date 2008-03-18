@@ -54,7 +54,7 @@ def detrend(data, perchunk=False, model='linear',
         if perchunk:
             bp = getBreakPoints(data.chunks)
 
-        data.samples[:] = signal.detrend(data.samples, axis=0,
+        data[:] = signal.detrend(data, axis=0,
                                          type=model, bp=bp)
     elif model in ['regress']:
         # perform regression-based detrend
@@ -138,7 +138,7 @@ def __detrend_regress(data, perchunk=True, polort=None, opt_reg=None):
         regs = reg[0]
 
     # perform the regression
-    res = lstsq(regs, data.samples)
+    res = lstsq(regs, data)
 
     # remove all but the residuals
     yhat = N.dot(regs, res[0])

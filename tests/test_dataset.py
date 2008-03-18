@@ -30,7 +30,7 @@ class DatasetTests(unittest.TestCase):
         self.failUnlessEqual( data.nsamples, 1)
         # check correct pattern layout (1x5)
         self.failUnless(
-            (data.samples == N.array([[0, 1, 2, 3, 4]])).all() )
+            (data == N.array([[0, 1, 2, 3, 4]])).all() )
 
         # check for single labels and origin
         self.failUnless( (data.labels == N.array([1])).all() )
@@ -75,7 +75,7 @@ class DatasetTests(unittest.TestCase):
         origdata = N.random.standard_normal((10,100))
         data = Dataset(samples=origdata, labels=2, chunks=2 )
 
-        unmasked = data.samples.copy()
+        unmasked = data.copy()
 
         # default must be no mask
         self.failUnless( data.nfeatures == 100 )
@@ -84,10 +84,10 @@ class DatasetTests(unittest.TestCase):
         self.failUnless(sel.nfeatures == 3)
 
         # check size of the masked patterns
-        self.failUnless( sel.samples.shape == (10,3) )
+        self.failUnless( sel.shape == (10,3) )
 
         # check that the right features are selected
-        self.failUnless( (unmasked[:,[0,20,79]]==sel.samples).all() )
+        self.failUnless( (unmasked[:,[0,20,79]]==sel).all() )
 
 
     def testSampleSelection(self):
@@ -104,11 +104,11 @@ class DatasetTests(unittest.TestCase):
         # check duplicate selections
         sel = data.selectSamples([5,5])
         self.failUnless( sel.nsamples == 2 )
-        self.failUnless( (sel.samples[0] == sel.samples[1]).all() )
+        self.failUnless( (sel[0] == sel[1]).all() )
         self.failUnless( len(sel.labels) == 2 )
         self.failUnless( len(sel.chunks) == 2 )
 
-        self.failUnless( sel.samples.shape == (2,100) )
+        self.failUnless( sel.shape == (2,100) )
 
         # check selection by labels
         sel = data.idsbylabels(2)
@@ -144,7 +144,7 @@ class DatasetTests(unittest.TestCase):
         self.failUnless( fpsel.nsamples == 2 )
         self.failUnless( fpsel.nfeatures == 2 )
 
-        self.failUnless( (fpsel.samples == [[1,2],[16,17]]).all() )
+        self.failUnless( (fpsel == [[1,2],[16,17]]).all() )
 
 
     def testPatternMerge(self):
@@ -190,7 +190,7 @@ class DatasetTests(unittest.TestCase):
         self.failUnless( (data.labels == origlabels).all() )
 
         # now try another object with the same data
-        data2 = Dataset(samples=data.samples,
+        data2 = Dataset(samples=data,
                         labels=data.labels,
                         chunks=data.chunks )
 
@@ -251,26 +251,26 @@ class DatasetTests(unittest.TestCase):
             reshape((16, 1))
         data = Dataset(samples=samples,
                        labels=range(16), chunks=[0]*16)
-        self.failUnlessEqual( data.samples.mean(), 2.0 )
-        self.failUnlessEqual( data.samples.std(), 1.0 )
+        self.failUnlessEqual( data.mean(), 2.0 )
+        self.failUnlessEqual( data.std(), 1.0 )
         zscore(data, perchunk=True)
 
         # check z-scoring
         check = N.array([-2,-1,1,2,0,0,1,-1,-1,1,1,-1,0,0,0,0],
                         dtype='float64').reshape(16,1)
-        self.failUnless( (data.samples ==  check).all() )
+        self.failUnless( (data ==  check).all() )
 
         data = Dataset(samples=samples,
                        labels=range(16), chunks=[0]*16)
         zscore(data, perchunk=False)
-        self.failUnless( (data.samples ==  check).all() )
+        self.failUnless( (data ==  check).all() )
 
         # check z-scoring taking set of labels as a baseline
         data = Dataset(samples=samples,
                        labels=[0, 2, 2, 2, 1] + [2]*11,
                        chunks=[0]*16)
         zscore(data, baselinelabels=[0, 1])
-        self.failUnless((samples == data.samples+1.0).all())
+        self.failUnless((samples == data+1.0).all())
 
 
     def testAggregation(self):
@@ -282,7 +282,7 @@ class DatasetTests(unittest.TestCase):
 
         self.failUnless(ag_data.nsamples == 4)
         self.failUnless(ag_data.nfeatures == 1)
-        self.failUnless((ag_data.samples[:,0] == [2, 7, 12, 17]).all())
+        self.failUnless((ag_data[:,0] == [2, 7, 12, 17]).all())
 
     def testApplyMapper(self):
         """Test creation of new dataset by applying a mapper"""
@@ -291,8 +291,8 @@ class DatasetTests(unittest.TestCase):
                           labels=1,
                           chunks=1)
         seldataset = dataset.applyMapper(featuresmapper=mapper)
-        self.failUnless( (dataset.selectFeatures([0, 2]).samples
-                          == seldataset.samples).all() )
+        self.failUnless( (dataset.selectFeatures([0, 2])
+                          == seldataset).all() )
         self.failUnlessRaises(NotImplementedError,
                               dataset.applyMapper, None, [1])
         """We don't yet have implementation for samplesmapper --
@@ -322,7 +322,7 @@ class DatasetTests(unittest.TestCase):
                         msg="Changing value in attribute should change _id")
 
         origid = dataset._id
-        dataset.samples[1,1] = 1000
+        dataset[1,1] = 1000
         self.failUnless(origid != dataset._id,
                         msg="Changing value in data should change _id")
 

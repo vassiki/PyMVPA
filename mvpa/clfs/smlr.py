@@ -295,7 +295,7 @@ class SMLR(Classifier):
         M = len(self.__ulabels)
 
         # get the dataset information into easy vars
-        X = dataset.samples
+        X = dataset
 
         # see if we are adding a bias term
         if self.__has_bias:

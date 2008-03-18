@@ -31,16 +31,16 @@ class SignalTests(unittest.TestCase):
         ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=False)
 
-        self.failUnless(linalg.norm(ds.samples - target_all) < thr,
+        self.failUnless(linalg.norm(ds - target_all) < thr,
                         msg="Detrend should have detrended all the samples at once")
 
         ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=True)
 
-        self.failUnless(linalg.norm(ds.samples) < thr,
+        self.failUnless(linalg.norm(ds) < thr,
                         msg="Detrend should have detrended each chunk separately")
 
-        self.failUnless(ds.samples.shape == samples.shape,
+        self.failUnless(ds.shape == samples.shape,
                         msg="Detrend must preserve the size of dataset")
 
 
@@ -48,32 +48,32 @@ class SignalTests(unittest.TestCase):
         ds = Dataset(samples=N.array([[1.0, 2, 3, 1, 2, 3]], ndmin=2).T,
                      labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=True)
-        self.failUnless(linalg.norm(ds.samples) < thr,
+        self.failUnless(linalg.norm(ds) < thr,
                         msg="Detrend should have removed all the signal")
 
         # tests of the regress version of detrend
         ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         detrend(ds, perchunk=False, model='regress', polort=1)
-        self.failUnless(linalg.norm(ds.samples - target_all) < thr,
+        self.failUnless(linalg.norm(ds - target_all) < thr,
                         msg="Detrend should have detrended all the samples at once")
 
         ds = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         (res, reg) = detrend(ds, perchunk=True, model='regress', polort=2)
-        psamps = ds.samples.copy()
-        self.failUnless(linalg.norm(ds.samples) < thr,
+        psamps = ds.copy()
+        self.failUnless(linalg.norm(ds) < thr,
                         msg="Detrend should have detrended each chunk separately")
 
-        self.failUnless(ds.samples.shape == samples.shape,
+        self.failUnless(ds.shape == samples.shape,
                         msg="Detrend must preserve the size of dataset")
 
         ods = Dataset(samples=samples, labels=chunks, chunks=chunks, copy=True)
         opt_reg = reg[N.ix_(range(reg.shape[0]),[1,2,4,5])]
         (ores, oreg) = detrend(ods, perchunk=True, model='regress', opt_reg=opt_reg)
-        self.failUnless((ods.samples - psamps).sum() == 0.0,
+        self.failUnless((ods - psamps).sum() == 0.0,
                         msg="Detrend for polort reg should be same as opt_reg " + \
                         "when popt_reg is the same as the polort reg.")
 
-        self.failUnless(linalg.norm(ds.samples) < thr,
+        self.failUnless(linalg.norm(ds) < thr,
                         msg="Detrend should have detrended each chunk separately")
 
 

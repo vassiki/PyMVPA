@@ -24,7 +24,7 @@ class MaskedDatasetTests(unittest.TestCase):
         self.failUnlessEqual( data.nsamples, 1)
         # check correct pattern layout (1x5)
         self.failUnless(
-            (data.samples == N.array([[0, 1, 2, 3, 4]])).all() )
+            (data == N.array([[0, 1, 2, 3, 4]])).all() )
 
         # check for single label and origin
         self.failUnless( (data.labels == N.array([1])).all() )
@@ -69,14 +69,14 @@ class MaskedDatasetTests(unittest.TestCase):
                              labels=1, chunks=1)
         self.failUnlessEqual(data.nsamples, 2)
         self.failUnless(data.mapper.dsshape == (3,4))
-        self.failUnlessEqual(data.samples.shape, (2,12))
-        self.failUnless((data.samples ==
+        self.failUnlessEqual(data.shape, (2,12))
+        self.failUnless((data ==
                          N.array([range(12),range(12,24)])).all())
 
 
     def testPatternShape(self):
         data = MaskedDataset(samples=N.ones((10,2,3,4)), labels=1, chunks=1)
-        self.failUnless(data.samples.shape == (10,24))
+        self.failUnless(data.shape == (10,24))
         self.failUnless(data.mapper.dsshape == (2,3,4))
 
 
@@ -97,7 +97,7 @@ class MaskedDatasetTests(unittest.TestCase):
             # compare data from orig array (selected by coord)
             # and data from pattern array (selected by feature id)
             orig = origdata[:,c[0],c[1],c[2],c[3]]
-            pat = data.samples[:, id]
+            pat = data[:, id]
 
             self.failUnless((orig == pat).all())
 
@@ -117,7 +117,7 @@ class MaskedDatasetTests(unittest.TestCase):
             # compare data from orig array (selected by coord)
             # and data from pattern array (selected by feature id)
             orig = origdata[:,c[0],c[1],c[2],c[3]]
-            pat = data.samples[:, id]
+            pat = data[:, id]
 
             self.failUnless((orig == pat).all())
 
@@ -126,7 +126,7 @@ class MaskedDatasetTests(unittest.TestCase):
         origdata = N.random.standard_normal((10,2,4,3,5))
         data = MaskedDataset(samples=origdata, labels=2, chunks=2)
 
-        unmasked = data.samples.copy()
+        unmasked = data.copy()
 
         # default must be no mask
         self.failUnless( data.nfeatures == 120 )
@@ -134,7 +134,7 @@ class MaskedDatasetTests(unittest.TestCase):
 
         # check that full mask uses all features
         sel = data.selectFeaturesByMask( N.ones((2,4,3,5)) )
-        self.failUnless( sel.nfeatures == data.samples.shape[1] )
+        self.failUnless( sel.nfeatures == data.shape[1] )
         self.failUnless( data.nfeatures == 120 )
 
         # check partial array mask
@@ -155,10 +155,10 @@ class MaskedDatasetTests(unittest.TestCase):
         self.failUnless(sel.nfeatures == 3)
 
         # check size of the masked patterns
-        self.failUnless( sel.samples.shape == (10,3) )
+        self.failUnless( sel.shape == (10,3) )
 
         # check that the right features are selected
-        self.failUnless( (unmasked[:,[0,37,119]]==sel.samples).all() )
+        self.failUnless( (unmasked[:,[0,37,119]]==sel).all() )
 
 
     def testPatternSelection(self):
@@ -175,11 +175,11 @@ class MaskedDatasetTests(unittest.TestCase):
         # check duplicate selections
         sel = data.selectSamples([5,5])
         self.failUnless( sel.nsamples == 2 )
-        self.failUnless( (sel.samples[0] == sel.samples[1]).all() )
+        self.failUnless( (sel[0] == sel[1]).all() )
         self.failUnless( len(sel.labels) == 2 )
         self.failUnless( len(sel.chunks) == 2 )
 
-        self.failUnless( sel.samples.shape == (2,120) )
+        self.failUnless( sel.shape == (2,120) )
 
     def testCombinedPatternAndFeatureMasking(self):
         data = MaskedDataset(
@@ -192,7 +192,7 @@ class MaskedDatasetTests(unittest.TestCase):
         self.failUnless( fpsel.nsamples == 2 )
         self.failUnless( fpsel.nfeatures == 2 )
 
-        self.failUnless( (fpsel.samples == [[1,2],[16,17]]).all() )
+        self.failUnless( (fpsel == [[1,2],[16,17]]).all() )
 
 
     def testOrigMaskExtraction(self):
@@ -201,7 +201,7 @@ class MaskedDatasetTests(unittest.TestCase):
 
         # check with custom mask
         sel = data.selectFeatures([5])
-        self.failUnless( sel.samples.shape[1] == 1 )
+        self.failUnless( sel.shape[1] == 1 )
         origmask = sel.mapper.getMask()
         self.failUnless( origmask[0,1,2] == True )
         self.failUnless( origmask.shape == data.mapper.dsshape == (2,4,3) )
@@ -250,7 +250,7 @@ class MaskedDatasetTests(unittest.TestCase):
         self.failUnless( (data.labels == origlabels).all() )
 
         # now try another object with the same data
-        data2 = MaskedDataset(samples=data.samples, labels=data.labels,
+        data2 = MaskedDataset(samples=data, labels=data.labels,
                               chunks=data.chunks )
 
         # labels are the same as the originals
@@ -283,7 +283,7 @@ class MaskedDatasetTests(unittest.TestCase):
         # selection should be idempotent
         self.failUnless(data.selectFeaturesByMask( mask ).nfeatures == data.nfeatures )
         # check that correct feature get selected
-        self.failUnless( (data.selectFeatures([1]).samples[:,0] \
+        self.failUnless( (data.selectFeatures([1])[:,0] \
                           == N.array([12, 27, 42, 57]) ).all() )
         self.failUnless(tuple( data.selectFeatures([1]).mapper.getInId(0) ) == (4,0) )
         self.failUnless( data.selectFeatures([1]).mapper.getMask().sum() == 1 )
@@ -297,20 +297,20 @@ class MaskedDatasetTests(unittest.TestCase):
 #        self.failIf( data.mapper.getMask().dtype == 'bool' )
 #        # check that the 0 masked features get cut
 #        self.failUnless( data.nfeatures == 54 )
-#        self.failUnless( (data.samples[:,0] == [6,66,126]).all() )
+#        self.failUnless( (data[:,0] == [6,66,126]).all() )
 #        self.failUnless( data.mapper.getMask().shape == (6,10) )
 #
 #        featsel = data.selectFeatures([19])
-#        self.failUnless( (data.samples[:,19] == featsel.samples[:,0]).all() )
+#        self.failUnless( (data[:,19] == featsel[:,0]).all() )
 #
 #        # check single ROI selection works
 #        roisel = data.selectFeaturesByGroup([4])
-#        self.failUnless( (data.samples[:,19] == roisel.samples[:,1]).all() )
+#        self.failUnless( (data[:,19] == roisel[:,1]).all() )
 #
 #        # check dual ROI selection works (plus keep feature order)
 #        roisel = data.selectFeaturesByGroup([6,4])
-#        self.failUnless( (data.samples[:,19] == roisel.samples[:,1]).all() )
-#        self.failUnless( (data.samples[:,32] == roisel.samples[:,8]).all() )
+#        self.failUnless( (data[:,19] == roisel[:,1]).all() )
+#        self.failUnless( (data[:,32] == roisel[:,8]).all() )
 #
 #        # check if feature coords can be recovered
 #        self.failUnless( (roisel.getCoordinate(8) == (3,8)).all() )

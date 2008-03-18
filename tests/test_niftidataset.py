@@ -45,7 +45,7 @@ class NiftiDatasetTests(unittest.TestCase):
 
         # throw away old dataset and see if new one survives
         del data
-        self.failUnless(merged.samples[3, 120000] == merged.samples[1, 120000])
+        self.failUnless(merged[3, 120000] == merged[1, 120000])
 
 
     def testNiftiMapper(self):
@@ -71,7 +71,7 @@ class NiftiDatasetTests(unittest.TestCase):
         self.failUnless(vol.data.shape == example.data.shape)
         self.failUnless((vol.data == example.data).all())
 
-        data.samples[:] = 1
+        data[:] = 1
         vol = data.map2Nifti()
         self.failUnless((vol.data == 1).all())
 

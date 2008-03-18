@@ -482,7 +482,7 @@ where each row vector is a `sample` and each column vector contains
 the values of a `feature` across all `samples`. The Dataset_ class
 provides access to the samples matrix via the `samples` property.
 
-  >>> data.samples.shape
+  >>> data.shape
   (10,5)
 
 The Dataset_ class itself can only deal with 2d sample matrices. However,
@@ -694,9 +694,9 @@ This examples demonstrates the typical daily life of a classifier.
                            labels=[ int(i>50) for i in rand100 ])
   >>> clf = kNN(k=10)
   >>> clf.train(training)
-  >>> N.mean(clf.predict(training.samples) == training.labels)
+  >>> N.mean(clf.predict(training) == training.labels)
   1.0
-  >>> N.mean(clf.predict(validation.samples) == validation.labels)
+  >>> N.mean(clf.predict(validation) == validation.labels)
   1.0
 
 Two datasets with 100 and 10 samples each are generated. Both datasets only

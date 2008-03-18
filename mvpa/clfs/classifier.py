@@ -187,7 +187,7 @@ class Classifier(Stateful):
             # it is confusing imho (yoh)
             self.states._changeTemporarily(
                 disable_states=["predictions"])
-            predictions = self.predict(dataset.samples)
+            predictions = self.predict(dataset)
             self.states._resetEnabledTemporarily()
             self.training_confusion = ConfusionMatrix(
                 labels=dataset.uniquelabels, targets=dataset.labels,
@@ -963,7 +963,7 @@ class SplitClassifier(CombinedClassifier):
             clf = self.clfs[i]
             clf.train(split[0])
             if self.states.isEnabled("training_confusions"):
-                predictions = clf.predict(split[1].samples)
+                predictions = clf.predict(split[1])
                 self.training_confusions.add(split[1].labels, predictions)
             i += 1
 

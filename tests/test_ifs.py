@@ -79,7 +79,7 @@ class IFSTests(unittest.TestCase):
         # repeat with dataset where selection order is known
         signal = dumbFeatureDataset()
         sdata, stdata = ifs(signal, signal)
-        self.failUnless((sdata.samples[:,0] == signal.samples[:,1]).all())
+        self.failUnless((sdata[:,0] == signal[:,1]).all())
 
 
 def suite():

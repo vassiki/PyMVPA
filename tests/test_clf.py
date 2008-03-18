@@ -85,7 +85,7 @@ class ClassifiersTests(unittest.TestCase):
         self.failUnlessEqual(clf.training_confusion.percentCorrect,
                              100,
                              msg="Dummy clf should train perfectly")
-        self.failUnlessEqual(clf.predict(self.data_bin_1.samples),
+        self.failUnlessEqual(clf.predict(self.data_bin_1),
                              list(self.data_bin_1.labels))
 
         self.failUnlessEqual(len(clf.predictions), self.data_bin_1.nsamples,
@@ -93,8 +93,8 @@ class ClassifiersTests(unittest.TestCase):
 
         clf = SameSignClassifier(enable_states=['trained_dataset'])
         clf.train(self.data_bin_1)
-        self.failUnless((clf.trained_dataset.samples ==
-                         self.data_bin_1.samples).all())
+        self.failUnless((clf.trained_dataset ==
+                         self.data_bin_1).all())
         self.failUnless((clf.trained_dataset.labels ==
                          self.data_bin_1.labels).all())
 
@@ -104,11 +104,11 @@ class ClassifiersTests(unittest.TestCase):
         # silly test if we get the same result with boosted as with a single one
         bclf = CombinedClassifier(clfs=[deepcopy(self.clf_sign),
                                         deepcopy(self.clf_sign)])
-        self.failUnlessEqual(list(bclf.predict(self.data_bin_1.samples)),
+        self.failUnlessEqual(list(bclf.predict(self.data_bin_1)),
                              list(self.data_bin_1.labels),
                              msg="Boosted classifier should work")
-        self.failUnlessEqual(bclf.predict(self.data_bin_1.samples),
-                             self.clf_sign.predict(self.data_bin_1.samples),
+        self.failUnlessEqual(bclf.predict(self.data_bin_1),
+                             self.clf_sign.predict(self.data_bin_1),
                              msg="Boosted classifier should have the same as regular")
 
 
@@ -153,7 +153,7 @@ class ClassifiersTests(unittest.TestCase):
                              msg="Should have 1 confusion per each split")
         self.failUnlessEqual(len(clf.clfs), len(ds.uniquechunks),
                              msg="Should have number of classifiers equal # of epochs")
-        self.failUnlessEqual(clf.predict(ds.samples), list(ds.labels),
+        self.failUnlessEqual(clf.predict(ds), list(ds.labels),
                              msg="Should classify correctly")
 
 
@@ -204,12 +204,12 @@ class ClassifiersTests(unittest.TestCase):
         # first classifier -- 0th feature should be discarded
         clf011 = FeatureSelectionClassifier(self.clf_sign, feat_sel)
         clf011.train(traindata)
-        self.failUnlessEqual(clf011.predict(testdata3.samples), res011)
+        self.failUnlessEqual(clf011.predict(testdata3), res011)
 
         # first classifier -- last feature should be discarded
         clf011 = FeatureSelectionClassifier(self.clf_sign, feat_sel_rev)
         clf011.train(traindata)
-        self.failUnlessEqual(clf011.predict(testdata3.samples), res110)
+        self.failUnlessEqual(clf011.predict(testdata3), res110)
 
     # TODO: come up with nice idea on how to bring sweepargs here
     def testMulticlassClassifier(self):
@@ -264,11 +264,11 @@ class ClassifiersTests(unittest.TestCase):
 
             traindata_copy = deepcopy(traindata) # full copy of dataset
             clf.train(traindata)
-            self.failUnless((traindata.samples == traindata_copy.samples).all(),
+            self.failUnless((traindata == traindata_copy).all(),
                 "Training of a classifier shouldn't change original dataset")
 
             # TODO: enforce uniform return from predict??
-            #predicted = clf.predict(traindata.samples)
+            #predicted = clf.predict(traindata)
             #self.failUnless(isinstance(predicted, N.ndarray))
 
 
@@ -295,11 +295,11 @@ class ClassifiersTests(unittest.TestCase):
             clf.train(traindata)
             self.failUnlessEqual(clf.training_confusion.percentCorrect, 100.0,
                 "Classifier %s must have 100%% correct learning on %s. Has %f" %
-                (`clf`, traindata.samples, clf.training_confusion.percentCorrect))
+                (`clf`, traindata, clf.training_confusion.percentCorrect))
 
             # and we must be able to predict every original sample thus
             for i in xrange(traindata.nsamples):
-                sample = traindata.samples[i,:]
+                sample = traindata[i,:]
                 predicted = clf.predict([sample])
                 self.failUnlessEqual([predicted], traindata.labels[i],
                     "We must be able to predict sample %s using " % sample +

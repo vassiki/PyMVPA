@@ -194,7 +194,7 @@ for (dataset, datasetdescr), clfs in \
         for nfold, (training_ds, validation_ds) in \
                 enumerate(NFoldSplitter()(dataset)):
             clf.train(training_ds)
-            predictions = clf.predict(validation_ds.samples)
+            predictions = clf.predict(validation_ds)
             confusion.add(validation_ds.labels, predictions)
             times.append([clf.training_time, clf.predicting_time])
 

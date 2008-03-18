@@ -36,7 +36,7 @@ class RidgeRegTests(unittest.TestCase):
 
         # prediction has to be almost perfect
         # test with a correlation
-        pre = clf.predict(data.samples)
+        pre = clf.predict(data)
         cor = pearsonr(pre,data.labels)
         self.failUnless(cor[0] > .8)
 
@@ -49,7 +49,7 @@ class RidgeRegTests(unittest.TestCase):
 
         clf.states.enable('predictions')
 
-        p = clf.predict(data.samples)
+        p = clf.predict(data)
 
         self.failUnless((p == clf.predictions).all())
 

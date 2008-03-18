@@ -30,12 +30,12 @@ class KNNTests(unittest.TestCase):
 
             k_mv = kNN(k = 10)
             k_mv.train(train)
-            p_mv = k_mv.predict( test.samples )
+            p_mv = k_mv.predict( test )
             mv_perf.append( N.mean(p_mv==test.labels) )
 
             k_uv = kNN(k=10)
             k_uv.train(train.selectFeatures([0]))
-            p_uv = k_uv.predict( test.selectFeatures([0]).samples )
+            p_uv = k_uv.predict( test.selectFeatures([0]) )
             uv_perf.append( N.mean(p_uv==test.labels) )
 
         mean_mv_perf = N.mean(mv_perf)
@@ -55,7 +55,7 @@ class KNNTests(unittest.TestCase):
         clf.states.enable('values')
         clf.states.enable('predictions')
 
-        p = clf.predict(test.samples)
+        p = clf.predict(test)
 
         self.failUnless(p == clf.predictions)
         self.failUnless(N.array(clf.values).shape == (80,2))
