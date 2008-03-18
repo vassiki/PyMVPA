@@ -666,6 +666,23 @@ class Dataset(N.ndarray):
 
         return dataset
 
+    def __getitem__(self, *args):
+        """Top level getitem call"""
+        params = None
+		if len(args)>0:
+			if isinstance(args[0], tuple):
+				v = args[0][-1]
+				if isinstance(v, dict) and v.has_key('copy'):
+					params = v
+					args = args[0][:-1] + args[1:]
+
+		return self._getitem(*args, params)
+
+
+    def _getitem(self, *args, params):
+        item = super(self.__class__, self).__getitem__(*args)
+        return item
+
 
     def selectSamples(self, mask):
         """Choose a subset of samples.
@@ -706,6 +723,7 @@ class Dataset(N.ndarray):
         # TODO!! we might need to copy explicitely here since mask can be a slice, thus...
         dataset = self[mask, ]
         dataset._data = data
+
         # TODO!! ??? is it needed below actually???
         #dataset._dsattr = copylib.copy(self._dsattr)
         dataset._resetallunique(force=True)
