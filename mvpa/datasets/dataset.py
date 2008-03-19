@@ -667,7 +667,10 @@ class Dataset(N.ndarray):
         return dataset
 
     def __getitem__(self, *args):
-        """Top level getitem call"""
+        """Return a slice of dataset as another dataset
+
+        New dataset has appropriate selection done for all attributes
+        in _data"""
         params = None
 		if len(args)>0:
 			if isinstance(args[0], tuple):
