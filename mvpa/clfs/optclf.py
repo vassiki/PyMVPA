@@ -87,8 +87,16 @@ class OptimizedClassifier(Classifier):  # should be ProxyClassifier?
     def _train(self, dataset):
         """Train the classifier using `dataset` (`Dataset`).
         """
+        optimization_algorithm = "scipy_cg"
+        # Compose array of hyper params
 
-        
+        # set initial values for them
+
+        # set lower and upper bounds for params
+
+        # set max number of iterations
+
+        # set tollerance??
 
         raise NotImplementedError
 
