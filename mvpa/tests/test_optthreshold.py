@@ -11,21 +11,21 @@
 import unittest
 import numpy as N
 
-from mvpa.datasets.dataset import Dataset
-from mvpa.datasets.splitter import NFoldSplitter, NoneSplitter
-from mvpa.algorithms.anova import OneWayAnova
-from mvpa.algorithms.featsel import FractionTailSelector
-from mvpa.algorithms.optthreshold import OptimalOverlapThresholder
+from mvpa.datasets.base import Dataset
+from mvpa.datasets.splitters import NFoldSplitter, NoneSplitter
+from mvpa.measures.anova import OneWayAnova
+from mvpa.featsel.helpers import FractionTailSelector
+from mvpa.featsel.optthreshold import OptimalOverlapThresholder
 from mvpa.clfs.transerror import TransferError
 
-from tests_warehouse import normalFeatureDataset, sweepargs
+from tests_warehouse import *
 from tests_warehouse_clfs import *
 
 
 class OptimalOverlapThresholderTests(unittest.TestCase):
 
     def getData(self):
-        data = N.random.standard_normal((100, 20))
+        data = N.random.standard_normal((100, 10))
         labels = N.concatenate((N.repeat(0, 50),
                                 N.repeat(1, 50)))
         chunks = N.repeat(range(5), 10)
@@ -33,7 +33,7 @@ class OptimalOverlapThresholderTests(unittest.TestCase):
         return Dataset(samples=data, labels=labels, chunks=chunks)
 
 
-    @sweepargs(l_clf=clfs['LinearSVMC'])
+    @sweepargs(l_clf=clfswh['linear', 'svm', '!meta'])
     def testFullThresholder(self, l_clf):
         # test full range of thresholding with 0.1 steps
         fractions = N.arange(0.0, 1.1, 0.1).tolist()
@@ -82,5 +82,5 @@ def suite():
 
 
 if __name__ == '__main__':
-    import test_runner
+    import runner
 

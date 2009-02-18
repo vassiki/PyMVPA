@@ -192,6 +192,7 @@ if __debug__:
     debug.register('RFEC', "Recursive Feature Elimination call")
     debug.register('RFEC_', "Recursive Feature Elimination call (verbose)")
     debug.register('IFSC', "Incremental Feature Search call")
+    debug.register('OTHRC', "Optimal Overlap Thresholder call")
     debug.register('DS',   "*Dataset")
     debug.register('DS_NIFTI', "NiftiDataset(s)")
     debug.register('DS_',  "*Dataset (verbose)")

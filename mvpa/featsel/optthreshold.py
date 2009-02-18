@@ -13,13 +13,13 @@ __docformat__ = 'restructuredtext'
 
 import numpy as N
 
-from mvpa.algorithms.featsel import FeatureSelection
+from mvpa.featsel.base import FeatureSelection
 from mvpa.clfs.transerror import TransferError
 from mvpa.misc.state import StateVariable
-from mvpa.misc import verbose, warning
+from mvpa.base import verbose, warning
 
 if __debug__:
-    from mvpa.misc import debug
+    from mvpa.base import debug
 
 
 class OptimalOverlapThresholder(FeatureSelection):
@@ -330,6 +330,7 @@ class OptimalOverlapThresholder(FeatureSelection):
 
         # mean across splits for all computed transfer errors
         for k, v in terrs.iteritems():
+            print k
             # first deal with missing values!
             a = N.array(v)
             ma = N.ma.masked_array(a, mask=a < 0)
@@ -376,7 +377,7 @@ class OptimalOverlapThresholder(FeatureSelection):
         if self.__opt_crit == None:
             self.__opt_crit = (1.0 / len(dataset.uniquelabels)) * 0.9
 
-        verbose(1, "Determine optimal overlap threshold.")
+        verbose(2, "Determine optimal overlap threshold.")
         verbose(4, "Compute sensitivities and store selection maps for all " \
                    "thresholders.")
         # (splits x thresholders x features)
