@@ -330,7 +330,7 @@ class OptimalOverlapThresholder(FeatureSelection):
 
         # mean across splits for all computed transfer errors
         for k, v in terrs.iteritems():
-            print k
+            # print k
             # first deal with missing values!
             a = N.array(v)
             ma = N.ma.masked_array(a, mask=a < 0)
