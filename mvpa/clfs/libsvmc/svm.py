@@ -177,7 +177,7 @@ class SVM(_SVM):
             libsvm_param._setParameter('C', Cs[0])
 
         self.__model = _svm.SVMModel(svmprob, libsvm_param)
-
+        print ">>:%s#%i" % (self, id(self)), self._attrmap, dataset.sa['labels'].unique
 
     @accepts_samples_as_dataset
     def _predict(self, data):
@@ -213,6 +213,7 @@ class SVM(_SVM):
                     values = [ self.model.predictValues(p)[(trained_labels[1],
                                                             trained_labels[0])]
                                for p in src ]
+                    print "<<:%s#%i" % (self, id(self)), trained_labels, values
                     if len(values) > 0:
                         if __debug__:
                             debug("SVM",
