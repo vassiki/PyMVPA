@@ -217,6 +217,10 @@ class ProxyClassifier(Classifier):
 
     """
 
+    # To override construction of own collections for the Proxy
+    # itself
+    _collections = []
+
     def __init__(self, clf, **kwargs):
         """Initialize the instance of ProxyClassifier
 
@@ -230,6 +234,11 @@ class ProxyClassifier(Classifier):
         # it for _setRetrainable called during __init__
         self.__clf = clf
         """Store the classifier to use."""
+
+        self._collections = clf._collections
+        """Bind slave's collections"""
+        for k, v in self._collections.iteritems():
+            setattr(self, k, v)
 
         Classifier.__init__(self, **kwargs)
 
@@ -255,14 +264,14 @@ class ProxyClassifier(Classifier):
     def _setRetrainable(self, value, force=False):
         # XXX Lazy implementation
         self.clf._setRetrainable(value, force)
-        super(ProxyClassifier, self)._setRetrainable(value, force)
-        if value and not (self.states._items['retrained']
-                          is self.clf.states['retrained']):
-            if __debug__:
-                debug("CLFPRX",
-                      "Rebinding state variables from slave clf %s" % self.clf)
-            self.states._items['retrained'] = self.clf.states['retrained']
-            self.states._items['repredicted'] = self.clf.states['repredicted']
+        ## super(ProxyClassifier, self)._setRetrainable(value, force)
+        ## if value and not (self.states._items['retrained']
+        ##                   is self.clf.states['retrained']):
+        ##     if __debug__:
+        ##         debug("CLFPRX",
+        ##               "Rebinding state variables from slave clf %s" % self.clf)
+        ##     self.states._items['retrained'] = self.clf.states['retrained']
+        ##     self.states._items['repredicted'] = self.clf.states['repredicted']
 
 
     def _train(self, dataset):
@@ -270,7 +279,7 @@ class ProxyClassifier(Classifier):
         """
         # base class does nothing much -- just proxies requests to underlying
         # classifier
-        self.__clf.train(dataset)
+        self.__clf._train(dataset)
 
         # for the ease of access
         # TODO: if to copy we should exclude some states which are defined in
@@ -285,12 +294,11 @@ class ProxyClassifier(Classifier):
         """Predict using `ProxyClassifier`
         """
         clf = self.__clf
-        if self.states.isEnabled('values'):
-            clf.states.enable(['values'])
-
-        result = clf.predict(dataset)
+        #if self.states.isEnabled('values'):
+        #    clf.states.enable(['values'])
+        result = clf._predict(dataset)
         # for the ease of access
-        self.states._copy_states_(self.__clf, ['values'], deep=False)
+        #self.states._copy_states_(self.__clf, ['values'], deep=False)
         return result
 
 
@@ -310,9 +318,14 @@ class ProxyClassifier(Classifier):
                 analyzer=self.__clf.getSensitivityAnalyzer(**slave_kwargs),
                 **kwargs)
 
+    def _get_attrmap(self):
+        return self.__clf._attrmap
+
+    def _set_attrmap(self, x):
+        self.__clf._attrmap = x
 
     clf = property(lambda x:x.__clf, doc="Used `Classifier`")
-
+    _attrmap = property(fget=_get_attrmap, fset=_set_attrmap)
 
 
 #
@@ -877,8 +890,8 @@ class BinaryClassifier(ProxyClassifier):
                 "BinaryClassifier must not overlap. Got overlap " %
                 overlap)
 
-        self.__poslabels = list(sposlabels)
-        self.__neglabels = list(sneglabels)
+        self.__poslabels = tuple(sposlabels)
+        self.__neglabels = tuple(sneglabels)
 
         # define what values will be returned by predict: if there is
         # a single label - return just it alone, otherwise - whole
@@ -899,8 +912,8 @@ class BinaryClassifier(ProxyClassifier):
 
 
     def __repr__(self, prefixes=[]):
-        prefix = "poslabels=%s, neglabels=%s" % (
-            repr(self.__poslabels), repr(self.__neglabels))
+        prefix = "poslabels=%r, neglabels=%r" % (
+            self.__poslabels, self.__neglabels)
         return super(BinaryClassifier, self).__repr__([prefix] + prefixes)
 
 
@@ -941,12 +954,15 @@ class BinaryClassifier(ProxyClassifier):
 
         # adjust the labels
         datasetselected.sa['labels'].value = [ x[1] for x in idlabels ]
-
+        # Specify attrmap
+        self._attrmap = AttributeMap({self.__predictpos:+1,
+                                      self.__predictneg:-1}, mapnumeric=True)
         # now we got a dataset with only 2 labels
         if __debug__:
             assert((datasetselected.sa['labels'].unique == [-1, 1]).all())
 
-        self.clf.train(datasetselected)
+        # XXX Use super's _train
+        self.clf._train(datasetselected)
 
 
     def _predict(self, dataset):
@@ -958,11 +974,13 @@ class BinaryClassifier(ProxyClassifier):
         return not a list but just that single label.
         """
         binary_predictions = ProxyClassifier._predict(self, dataset)
-        self.states.values = binary_predictions
-        predictions = [ {-1: self.__predictneg,
-                         +1: self.__predictpos}[x] for x in binary_predictions]
-        self.states.predictions = predictions
-        return predictions
+        #self.states.values = binary_predictions
+        #predictions = [ {-1: self.__predictneg,
+        #                 +1: self.__predictpos}[x] for x in binary_predictions]
+        # XXX -- map them into correct labels???
+        #self.states.predictions = predictions
+        #return self._attrmap.to_literal(binary_predictions)
+        return binary_predictions       # conversion should be done in super predict()
 
 
 
@@ -1348,12 +1366,12 @@ class FeatureSelectionClassifier(ProxyClassifier):
         """Predict using `FeatureSelectionClassifier`
         """
         clf = self.__maskclf
-        if self.states.isEnabled('values'):
-            clf.states.enable(['values'])
-
+        #if self.states.isEnabled('values'):
+        #    clf.states.enable(['values'])
+        # XXX Use super's _train
         result = clf._predict(dataset)
         # for the ease of access
-        self.states._copy_states_(clf, ['values'], deep=False)
+        #self.states._copy_states_(clf, ['values'], deep=False)
         return result
 
     def setTestDataset(self, testdataset):
