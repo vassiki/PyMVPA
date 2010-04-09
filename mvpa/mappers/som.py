@@ -30,7 +30,7 @@ class SimpleSOMMapper(Mapper):
     kernel.
     """
     def __init__(self, kshape, niter, learning_rate=0.005,
-                 iradius=None):
+                 iradius=None, **kwargs):
         """
         Parameters
         ----------
@@ -50,7 +50,7 @@ class SimpleSOMMapper(Mapper):
           Kohonen layer.
         """
         # init base class
-        Mapper.__init__(self)
+        Mapper.__init__(self, **kwargs)
 
         self.kshape = np.array(kshape, dtype='int')
 

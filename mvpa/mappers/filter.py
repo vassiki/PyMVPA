@@ -27,8 +27,8 @@ from mvpa.mappers.base import Mapper
 
 
 class FFTResamplemapper(Mapper):
-    def __init__(self, chunks_attr=None, inspace=None):
-        Mapper.__init__(self, inspace=inspace)
+    def __init__(self, chunks_attr=None, inspace=None, **kwargs):
+        Mapper.__init__(self, inspace=inspace, **kwargs)
 
         self.__chunks_attr = chunks_attr
 

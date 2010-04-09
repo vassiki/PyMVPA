@@ -71,7 +71,8 @@ class PolyDetrendMapper(Mapper):
     >>> np.sum(np.abs(mds)) < 0.00001
     True
     """
-    def __init__(self, polyord=1, chunks_attr=None, opt_regs=None, inspace=None):
+    def __init__(self, polyord=1, chunks_attr=None, opt_regs=None, inspace=None,
+                 **kwargs):
         """
         Parameters
         ----------
@@ -105,7 +106,7 @@ class PolyDetrendMapper(Mapper):
           as sample coordinates in the space that should be spanned by the
           polynomials.
         """
-        Mapper.__init__(self, inspace=inspace)
+        Mapper.__init__(self, inspace=inspace, **kwargs)
 
         self.__chunks_attr = chunks_attr
         self.__polyord = polyord

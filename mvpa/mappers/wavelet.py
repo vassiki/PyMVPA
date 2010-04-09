@@ -30,7 +30,7 @@ class _WaveletMapper(Mapper):
     """Generic class for Wavelet mappers (decomposition and packet)
     """
 
-    def __init__(self, dim=1, wavelet='sym4', mode='per', maxlevel=None):
+    def __init__(self, dim=1, wavelet='sym4', mode='per', maxlevel=None, **kwargs):
         """Initialize _WaveletMapper mapper
 
         Parameters
@@ -45,7 +45,7 @@ class _WaveletMapper(Mapper):
         maxlevel : int or None
           number of levels to use. If None - automatically selected by pywt
         """
-        Mapper.__init__(self)
+        Mapper.__init__(self, **kwargs)
 
         self._dim = dim
         """Dimension to work along"""
@@ -133,7 +133,7 @@ class WaveletPacketMapper(_WaveletMapper):
           in 1D row.
         """
 
-        _WaveletMapper.__init__(self,**kwargs)
+        _WaveletMapper.__init__(self, **kwargs)
 
         self.__level = level
 

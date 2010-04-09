@@ -26,7 +26,7 @@ class FxMapper(Mapper):
 
     """
     def __init__(self, axis, fx, fxargs=None, uattrs=None,
-                 attrfx='merge'):
+                 attrfx='merge', **kwargs):
         """
         Parameters
         ----------
@@ -44,7 +44,7 @@ class FxMapper(Mapper):
           samples group a unique string representation is created.
           If `None`, attributes are not altered.
         """
-        Mapper.__init__(self)
+        Mapper.__init__(self, **kwargs)
 
         if not axis in ['samples', 'features']:
             raise ValueError("%s `axis` arguments can only be 'samples' or "

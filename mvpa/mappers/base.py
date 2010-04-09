@@ -10,6 +10,17 @@
 
 __docformat__ = 'restructuredtext'
 
+_DEV_DOC_ = """
+RF to use ClassWithCollections:
+
+ * Some classes rely on having **kwargs for specifying arbitrary kwargs for
+   delegated objects, not for the parent. That masks out "standard" ability
+   to specify anything up (i.e. enable_ca)
+   Classes:
+     LLEMapper -> mdp.*LLENode
+     PCAMapper -> mdp.*PCANode
+     ICAMapper -> mdp.**ICANode
+"""
 import numpy as np
 import copy
 
@@ -19,8 +30,9 @@ from mvpa.base.dochelpers import _str
 if __debug__:
     from mvpa.base import debug
 
+from mvpa.misc.state import ClassWithCollections
 
-class Mapper(object):
+class Mapper(ClassWithCollections):
     """Basic mapper interface definition.
 
     ::
@@ -32,13 +44,15 @@ class Mapper(object):
                reverse
 
     """
-    def __init__(self, inspace=None):
+    def __init__(self, inspace=None, **kwargs):
         """
         Parameters
         ----------
         inspace : str, optional
           Name of the input space
         """
+        ClassWithCollections.__init__(self, **kwargs)
+
         self.__inspace = None
         self.set_inspace(inspace)
         # internal settings that influence what should be done to the dataset

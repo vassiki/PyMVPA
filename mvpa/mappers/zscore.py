@@ -48,7 +48,7 @@ class ZScoreMapper(Mapper):
     Reverse-mapping is currently not implemented.
     """
     def __init__(self, params=None, param_est=None, chunks_attr='chunks',
-                 dtype='float64', inspace=None):
+                 dtype='float64', inspace=None, **kwargs):
         """
         Parameters
         ----------
@@ -75,7 +75,7 @@ class ZScoreMapper(Mapper):
         inspace : None
           Currently, this argument has no effect.
         """
-        Mapper.__init__(self, inspace=inspace)
+        Mapper.__init__(self, inspace=inspace, **kwargs)
 
         self.__chunks_attr = chunks_attr
         self.__params = params
