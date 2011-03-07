@@ -191,6 +191,10 @@ def __assign_nipy_version():
     import nipy
     versions['nipy'] = SmartVersion(nipy.__version__)
 
+def __assign_skl_version():
+    import scikits.learn as skl
+    versions['skl'] = SmartVersion(skl.__version__)
+
 def __check_weave():
     """Apparently presence of scipy is not sufficient since some
     versions experience problems. E.g. in Sep,Oct 2008 lenny's weave
@@ -300,9 +304,6 @@ def __check_openopt():
         pass
     import scikits.openopt as _
     return
-
-def __check_skl():
-    import scikits.learn as _
 
 def _set_matplotlib_backend():
     """Check if we have custom backend to set and it is different
@@ -445,7 +446,7 @@ _KNOWN = {'libsvm':'import mvpa.clfs.libsvmc._svm as __; x=__.seq_to_svm_node',
           'pylab': "__check_pylab()",
           'pylab plottable': "__check_pylab_plottable()",
           'openopt': "__check_openopt()",
-          'skl': "__check_skl()",
+          'skl': "__assign_skl_version()",
           'mdp': "__assign_mdp_version()",
           'mdp ge 2.4': "from mdp.nodes import LLENode as __",
           'sg_fixedcachesize': "__check_shogun(3043, [2456])",
@@ -594,6 +595,7 @@ versions._KNOWN.update({
     'reportlab' : __check_reportlab,
     'pprocess' : __check_pprocess,
     'rpy2' : __check_rpy2,
+    'skl' : __assign_skl_version,
     'shogun' : __assign_shogun_version,
     'shogun:rev' : __assign_shogun_version,
     'shogun:full' : __assign_shogun_version,

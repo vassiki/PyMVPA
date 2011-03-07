@@ -308,6 +308,23 @@ if externals.exists('skl'):
                                 tags=['lda', 'linear', 'multiclass', 'binary'],
                                 descr='skl.LDA()')
 
+    if externals.versions['skl'] >= '0.6.0':
+        from scikits.learn.linear_model import \
+             LARS as sklLARS, LassoLARS as sklLassoLARS
+        _lars_tags = ['lars', 'linear', 'regression', 'does_feature_selection']
+
+        _lars = SKLLearnerAdapter(sklLARS(),
+                                  tags=_lars_tags,
+                                  descr='skl.LARS()')
+
+        _lasso_lars = SKLLearnerAdapter(sklLassoLARS(),
+                                        tags=_lars_tags,
+                                        descr='skl.LassoLARS()')
+
+        regrswh += [_lars, _lasso_lars]
+        clfswh += [RegressionAsClassifier(_lars),
+                   RegressionAsClassifier(_lasso_lars)]
+
 # kNN
 clfswh += kNN(k=5, descr="kNN(k=5)")
 clfswh += kNN(k=5, voting='majority', descr="kNN(k=5, voting='majority')")
