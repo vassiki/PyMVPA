@@ -35,7 +35,8 @@ class BoxcarMapper(Mapper):
     #       utility functionality (outside BoxcarMapper) could be used to merge
     #       arbitrary sample attributes into the samples matrix (with
     #       appropriate mapper adjustment, e.g. CombinedMapper).
-    def __init__(self, startpoints, boxlength, offset=0, **kwargs):
+    def __init__(self, startpoints, boxlength, offset=0,
+                 passthrough=False, **kwargs):
         """
         Parameters
         ----------
@@ -47,6 +48,11 @@ class BoxcarMapper(Mapper):
         offset : int
           The offset between the provided starting point and the actual start
           of the boxcar.
+        passthrough : bool, optional
+          If 'postproc' argument is provided and it results in collapsing the
+          "boxcar" dimension, then if 'passthrough' is True, no operation
+          will be done to feature attributes on forward/reverse operations,
+          and data will be passed intact upon 'reverse'.
         """
         Mapper.__init__(self, **kwargs)
         self._outshape = None
@@ -69,9 +75,9 @@ class BoxcarMapper(Mapper):
         self.boxlength = int(boxlength)
         self.offset = offset
         self.__selectors = None
+        self.passthrough = passthrough
 
-        # build a list of list where each sublist contains the indexes of to be
-        # averaged data elements
+        # build a list of boxcar slices for all startpoints
         self.__selectors = [ slice(i + offset, i + offset + boxlength) \
                              for i in startpoints ]
 
@@ -85,7 +91,8 @@ class BoxcarMapper(Mapper):
         if badguy in state:
             del state[badguy]
         return (self.__class__,
-                    (self.startpoints, self.boxlength, self.offset),
+                    (self.startpoints, self.boxlength, self.offset,
+                     self.passthrough),
                     state)
 
 
@@ -225,3 +232,17 @@ class BoxcarMapper(Mapper):
             if inspace is None or k != (inspace + '_onsetidx'):
                 mds.sa[k] = self._reverse_data(dataset.sa[k].value)
         return mds
+
+    def _postcall(self, ds, result):
+        result = super(BoxcarMapper, self)._postcall(ds, result)
+        if self.passthrough and self.postproc is not None:
+            # verify that dimensionality was preserved and we got rid
+            # of the "boxcar" dimension
+            if result.shape[1:] != ds.shape[1:]:
+                raise RuntimeError(
+                    "postproc of %s resulted in samples shape %s while it must "
+                    "not change from the original one %s in 'passthrough' mode"
+                    % (self, result.shape[1:], ds.shape[1:]))
+            assert(result.nfeatures == ds.nfeatures)
+            result.fa = ds.fa.copy()
+        return result

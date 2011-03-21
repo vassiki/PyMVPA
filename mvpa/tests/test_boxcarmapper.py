@@ -12,12 +12,13 @@
 import numpy as np
 
 from mvpa.testing.tools import ok_, assert_raises, assert_false, assert_equal, \
-        assert_true, assert_array_equal
+        assert_true, assert_array_equal, assert_not_equal
 
 from mvpa.mappers.boxcar import BoxcarMapper
 from mvpa.datasets import Dataset
 from mvpa.mappers.flatten import FlattenMapper
 from mvpa.mappers.base import ChainMapper
+from mvpa.mappers.fx import mean_feature
 
 
 
@@ -169,3 +170,37 @@ def test_datasetmapping():
     # feature axis should match
     assert_equal(ds.shape[1:], bflatrev.shape[1:])
 
+
+def test_boxcar_with_postproc():
+    data = np.arange(20).reshape(5,4)
+    ds = Dataset(data)
+    ds.fa['fa_int'] = xrange(ds.nfeatures)
+    startpoints = [0,2]
+    boxlength = 2
+    args = [startpoints, boxlength]
+    kwargs = dict(space='boxy')
+    bm = BoxcarMapper(*args, **kwargs)
+    bm_mean = BoxcarMapper(*args,
+                           postproc=mean_feature(), **kwargs)
+    bm_mean_pt = BoxcarMapper(*args,
+                              postproc=mean_feature(),
+                              passthrough=True, **kwargs)
+    bm.train(ds)
+    ds_bm = bm(ds)
+
+    bm_mean.train(ds)
+    ds_bm_mean = bm_mean(ds)
+
+    bm_mean_pt.train(ds)
+    ds_bm_mean_pt = bm_mean_pt(ds)
+
+    for ds_ in ds_bm, ds_bm_mean, ds_bm_mean_pt:
+        print ds_.fa.keys()
+        print ds_.fa.fa_int
+
+    ds_bm_mean_pt.fa.fa_int[1] = 123
+    assert_not_equal(ds.fa, ds_bm.fa)
+    assert_not_equal(ds.fa, ds_bm_mean.fa)
+    assert_equal(ds.fa, ds_bm_mean_pt.fa)
+
+    raise ValueError
