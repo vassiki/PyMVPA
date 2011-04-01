@@ -14,7 +14,7 @@ import numpy as np
 
 from mvpa.mappers.base import Mapper
 from mvpa.clfs.base import accepts_dataset_as_samples
-from mvpa.base.dochelpers import _str
+from mvpa.base.dochelpers import _str, _repr_attrs
 
 if __debug__:
     from mvpa.base import debug
@@ -111,15 +111,13 @@ class BoxcarMapper(Mapper):
         self._outshape = (len(startpoints), boxlength) + data.shape[1:]
 
 
-    def __repr__(self):
-        s = super(BoxcarMapper, self).__repr__()
-        return s.replace("(", "(boxlength=%d, offset=%d, startpoints=%s, " %
-                         (self.boxlength, self.offset, str(self.startpoints)),
-                         1)
-
+    def __repr__(self, prefixes=[]):
+        return super(BoxcarMapper, self).__repr__(
+            prefixes=prefixes
+            + _repr_attrs(self, ['boxlength', 'offset', 'startpoints']))
 
     def __str__(self):
-        return _str(self, bl=self.boxlength)
+        return _str(self, bl=self.boxlength, os=self.offset)
 
 
     def forward1(self, data):
@@ -234,6 +232,12 @@ class BoxcarMapper(Mapper):
         return mds
 
     def _postcall(self, ds, result):
+        # TODO: ideally _postcall should be applied directly in
+        # _forward_data on samples, so we would avoid even creating
+        # that possibly huge boxcarred array first and operate only
+        # on slices of the original samples -- should make it
+        # memory efficient, would avoid copying and thus become
+        # more cpu efficient
         result = super(BoxcarMapper, self)._postcall(ds, result)
         if self.passthrough and self.postproc is not None:
             # verify that dimensionality was preserved and we got rid
