@@ -186,16 +186,21 @@ def test_boxcar_with_postproc():
                               postproc=mean_feature(),
                               passthrough=True, **kwargs)
     bm.train(ds)
-    ds_bm = ds.get_mapped(bm)
+    #ds_bm = ds.get_mapped(bm)
+    ds_bm = bm(ds)
     #print `bm`, `bm_mean`, `bm_mean_pt`
 
     bm_mean.train(ds)
     # causes to fail!
-    #ds_bm_mean = ds.get_mapped(bm_mean)
+    #import pydb; pydb.debugger()
+    #import trace
+    #t = trace.Trace(ignoredirs=['/usr'])
+    #t.runctx('ds.get_mapped(bm_mean)', locals())
+    #t.runctx('bm_mean(ds)', locals())
+    ds_bm_mean = ds.get_mapped(bm_mean)
     ds_bm_mean = bm_mean(ds)
 
     bm_mean_pt.train(ds)
-    #ds_bm_mean_pt = ds.get_mapped(bm_mean_pt)
     ds_bm_mean_pt = bm_mean_pt(ds)
 
     for ds_ in ds_bm, ds_bm_mean, ds_bm_mean_pt:
