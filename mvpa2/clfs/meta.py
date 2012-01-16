@@ -27,6 +27,8 @@ import numpy as np
 from mvpa2.misc.args import group_kwargs
 from mvpa2.base.param import Parameter
 
+from mvpa2.datasets.base import Dataset
+
 from mvpa2.generators.splitters import Splitter
 from mvpa2.generators.partition import NFoldPartitioner
 from mvpa2.datasets.miscfx import get_samples_by_attr
@@ -1295,6 +1297,9 @@ class MappedClassifier(ProxyClassifier):
 
     __sa_class__ = MappedClassifierSensitivityAnalyzer
 
+    predict_mapped_dataset = ConditionalAttribute(enabled=False, doc=
+        """Store the dataset which was used in predict operation""")
+
     def __init__(self, clf, mapper, **kwargs):
         """Initialize the instance
 
@@ -1343,7 +1348,24 @@ class MappedClassifier(ProxyClassifier):
     def _predict(self, dataset):
         """Predict using `MappedClassifier`
         """
-        return ProxyClassifier._predict(self, self.__mapper.forward(dataset))
+        self.ca.predict_mapped_dataset = mapped_dataset = \
+                                         self.__mapper.forward(dataset)
+        return ProxyClassifier._predict(self, mapped_dataset)
+
+    def _call(self, ds):
+        """
+        Generic implementation has to be overloaded since mapper might
+        change number of samples (e.g. via mean_group_sample) so above
+        would not be aware of that
+        """
+        self.ca.change_temporarily(enable_ca = ['predict_mapped_dataset'])
+        pred = self.predict(ds)
+        tattr = self.get_space()
+        # return the predictions and the targets in a dataset
+        ds_out = Dataset(pred,
+                         sa={tattr: self.ca.predict_mapped_dataset.sa[tattr]})
+        self.ca.reset_changed_temporarily()
+        return ds_out
 
 
     def __str__(self):
