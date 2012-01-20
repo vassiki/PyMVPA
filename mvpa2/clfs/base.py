@@ -266,8 +266,15 @@ class Classifier(Learner):
                 self.__changedData_isset = False
             predictions = self.predict(dataset)
             self.ca.reset_changed_temporarily()
+            # Workaround for MappedClassifier which might have changed
+            # # of samples -- check if predict_mapped_dataset is known
+            # and choose targets from there
+            if 'predict_mapped_dataset' in self.ca:
+                targets = self.ca.predict_mapped_dataset.sa[self.get_space()]
+            else:
+                targets = dataset.sa[self.get_space()].value
             self.ca.training_stats = self.__summary_class__(
-                targets=dataset.sa[self.get_space()].value,
+                targets=targets,
                 predictions=predictions)
 
 
