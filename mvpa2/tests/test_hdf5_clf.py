@@ -45,12 +45,12 @@ def test_h5py_clfs(lrn):
         raise AssertionError, \
               "Failed to store due to %r" % (e,)
 
-    try:
+    if True: #try:
         lrn_ = h5load(f.name)
         pass
-    except Exception, e:
-        raise AssertionError, \
-              "Failed to load due to %r" % (e,)
+    #except Exception, e:
+    #    raise AssertionError, \
+    #          "Failed to load due to %r" % (e,)
 
     ok_(isinstance(lrn_, Classifier))
     # Verify that we have the same ca enabled
@@ -117,3 +117,40 @@ def test_h5py_clfs(lrn):
     # TODO: verify ca's
 
     #print "I PASSED!!!! %s" % lrn
+
+@with_tempfile(suffix='.hdf5')
+def test_h5py_confusion_matrix(filename):
+    from mvpa2.clfs.transerror import ConfusionMatrix
+    # Generate some confusion matrix
+    cm = ConfusionMatrix(labels_map={1: 'apple', 2: 'banana'},
+                         labels=[1, 2])
+    reused_load = (1, 666)
+    for i in range(2):
+        cm += ConfusionMatrix(targets=[1, 2, 1, 2],
+                              predictions=[2, 1, 2, 1],
+                              estimates=[3.2, 2+i, reused_load, [1, i]])
+
+    # TODO: make a regression out of this -- store
+    #       with PyMVPA 2.0 and then keep reloading/comparing
+    for i in xrange(2):
+        # run twice since on 2nd round it would be computed already
+        h5save(filename, cm)
+        cmr = h5load(filename)
+
+        # Compare
+        assert_equal(cm.sets, cmr.sets)
+        assert_equal(cm.labels, cmr.labels)
+        assert_equal(cm.labels_map, cmr.labels_map)
+        # and cause them to get (re)computed
+        assert_array_equal(cm.matrix, cmr.matrix)
+        # otherwise comparisons of mixed scalars/arrays are cumbersome
+        assert_equal(str(sorted(cm.stats.items())),
+                     str(sorted(cmr.stats.items())))
+        # Just verify once again that reused_load
+        # gets properly reused/tracked
+        ok_(len(set([id(s[2][2]) for s in cm.sets])) == 1)
+        ok_(len(set([id(s[2][2]) for s in cmr.sets])) == 1)
+        # just a control test -- there everyone should be different
+        ok_(len(set([id(s[2][3]) for s in cmr.sets])) >= 1)
+        # and now with 'computed'
+

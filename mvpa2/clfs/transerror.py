@@ -92,7 +92,7 @@ class SummaryStatistics(object):
         self._computed = False
         """Flag either it was computed for a given set of data"""
 
-        self.__sets = (sets, [])[int(sets is None)]
+        self.__sets = sets or []
         """Datasets (target, prediction) to compute confusion matrix on"""
 
         self._stats = {}
@@ -106,6 +106,8 @@ class SummaryStatistics(object):
                 raise ValueError, \
                       "Please provide none or both targets and predictions"
 
+    def __reduce__(self):
+        return (self.__class__, tuple(), {'_SummaryStatistics__sets': self.__sets})
 
     def add(self, targets, predictions, estimates=None):
         """Add new results to the set of known results"""
@@ -267,7 +269,7 @@ class ROCCurve(object):
           list of sets for the analysis
         """
         self._labels = labels
-        self._sets = sets
+        self.__sets = sets
         self.__computed = False
 
 
@@ -279,7 +281,7 @@ class ROCCurve(object):
         # local bindings
         labels = self._labels
         Nlabels = len(labels)
-        sets = self._sets
+        sets = self.__sets
 
         # Handle degenerate cases politely
         if Nlabels < 2:
@@ -513,6 +515,11 @@ class ConfusionMatrix(SummaryStatistics):
         self.__matrix = None
         """Resultant confusion matrix"""
 
+    def __reduce__(self):
+        ssr = super(ConfusionMatrix, self).__reduce__()
+        ssr[2].update({'_ConfusionMatrix__labels': self.__labels,
+                       '_ConfusionMatrix__labels_map': self.__labels_map})
+        return ssr
 
     def __call__(self, predictions, targets, estimates=None, store=False):
         """Computes confusion matrix (counts)
@@ -1387,7 +1394,7 @@ class ClassifierError(ClassWithCollections):
 
     def __copy__(self):
         """TODO: think... may be we need to copy self.clf"""
-        out = ClassifierError.__new__(TransferError)
+        out = ClassifierError.__new__(ClassifierError)
         ClassifierError.__init__(out, self.clf)
         return out
 
@@ -1533,3 +1540,4 @@ class ConfusionBasedError(ClassifierError):
         confusion = self.clf.ca[self.__confusion_state].value
         self.ca.confusion = confusion
         return confusion.error
+

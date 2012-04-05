@@ -235,9 +235,26 @@ def _recon_customobj_customrecon(hdf, memo):
     else:
         recon_args = ()
 
+    if 'rc__dict__' in hdf:
+        recon__dict__hdf = hdf['rc__dict__']
+        if __debug__:
+            debug('HDF5', "Load reconstructor __dict__ in [%s]"
+                          % recon_args_hdf.name)
+        recon__dict__ = _hdf_dict_to_obj(recon__dict__hdf, memo)
+    else:
+        recon__dict__ = {}
+
+
     # reconstruct
     obj = recon(*recon_args)
+
     # TODO Handle potentially avialable state settings
+    if len(recon__dict__):
+        #for k, v in recon__dict__.iteritems():
+        #    setattr(obj, k, v)
+        # not in effect -- probably too late or wrong to tune __dict__
+        # directly at this point
+        obj.__dict__.update(recon__dict__)
     return obj
 
 
@@ -270,6 +287,7 @@ def _recon_customobj_defaultrecon(hdf, memo):
         if __debug__:
             debug('HDF5', "Populating instance state.")
         state = _hdf_dict_to_obj(hdf['state'], memo)
+        # XXX  is it in effect here?
         obj.__dict__.update(state)
         if __debug__:
             debug('HDF5', "Updated %i state items." % len(state))
@@ -301,8 +319,12 @@ def _hdf_dict_to_obj(hdf, memo, skip=None):
     else:
         items_container = hdf['items']
 
-    if items_container.attrs.get('__keys_in_tuple__', 0):
+    keys_in_tuple = items_container.attrs.get('__keys_in_tuple__', 0)
+    if keys_in_tuple:
         items = _hdf_list_to_obj(hdf, memo)
+        if keys_in_tuple == 2:          # stored as a tuple of lists not list of tuples
+            # convert to tuples now
+            items = list(zip(*items))
         items = [i for i in items if not i[0] in skip]
         return dict(items)
     else:
@@ -401,6 +423,27 @@ def _seqitems_to_hdf(obj, hdf, memo, noid=False, **kwargs):
         if __debug__:
             debug('HDF5', "Item %i" % i)
         obj2hdf(items, item, name=str(i), memo=memo, noid=noid, **kwargs)
+
+
+def _dict_to_hdf(obj, hdf, memo, **kwargs):
+    """Store a dictionary as a tuple of keys and values
+
+    Previously (version < 2), dicts were stored as zipped list of
+    key/value tuples, which is very space consuming
+    """
+
+    if __debug__:
+        debug('HDF5', "Store dict as a tuple")
+    # was: need to set noid=True since outside tuple is a temporary storage
+    _seqitems_to_hdf((obj.keys(), obj.values()), hdf, memo,
+                     noid=True, **kwargs)
+    # Description of values for __keys_in_tuple__ which describes
+    # how dict was stored:
+    # 1 was introduced to store as zip(obj.keys(), obj.values())
+    #   but that is space inefficient since creates a tuple for each
+    #   pair
+    # 2 stores tuple of two lists which should be more efficient
+    hdf['items'].attrs.create('__keys_in_tuple__', 2)
 
 
 def obj2hdf(hdf, obj, name=None, memo=None, noid=False, **kwargs):
@@ -553,7 +596,9 @@ def obj2hdf(hdf, obj, name=None, memo=None, noid=False, **kwargs):
     # try disassembling the object
     try:
         pieces = obj.__reduce__()
-    except TypeError:
+    except TypeError, e:
+        if __debug__:
+            debug('HDF5', "__reduce__() raised exception: %s", e)
         # needs special treatment
         pieces = None
 
@@ -593,12 +638,7 @@ def obj2hdf(hdf, obj, name=None, memo=None, noid=False, **kwargs):
         if isinstance(obj, list) or isinstance(obj, tuple):
             _seqitems_to_hdf(obj, grp, memo, **kwargs)
         elif isinstance(obj, dict):
-            if __debug__:
-                debug('HDF5', "Store dict as zipped list")
-            # need to set noid since outer tuple containers are temporary
-            _seqitems_to_hdf(zip(obj.keys(), obj.values()), grp, memo,
-                             noid=True, **kwargs)
-            grp['items'].attrs.create('__keys_in_tuple__', 1)
+            _dict_to_hdf(obj, grp, memo, **kwargs)
 
         # pull all remaining data from the default __reduce__
         if not pieces is None and len(pieces) > 2:
@@ -614,10 +654,22 @@ def obj2hdf(hdf, obj, name=None, memo=None, noid=False, **kwargs):
             debug('HDF5', "Use custom __reduce__: (%i arguments)."
                           % len(pieces[1]))
         # XXX handle custom reduce
+        #
+        # YOH: yikes -- we ignored all other possible pieces,
+        #      without even spitting out a warning!!!
         grp.attrs.create('recon', pieces[0].__name__)
         grp.attrs.create('module', pieces[0].__module__)
         args = grp.create_group('rcargs')
         _seqitems_to_hdf(pieces[1], args, memo, **kwargs)
+        if len(pieces) > 2 and pieces[2] is not None:
+            # dict with items to be assigned to reconstructed
+            # instance's __dict__
+            rc__dict__ = grp.create_group('rc__dict__')
+            _dict_to_hdf(pieces[2], rc__dict__, memo, **kwargs)
+        elif len(pieces) > 3:
+            raise NotImplementedError(
+                "PyMVPA does not know how to handle extended __reduce__. "
+                "Following items are left: %s" % (pieces[3:]))
 
 
 def h5save(filename, data, name=None, mode='w', **kwargs):
