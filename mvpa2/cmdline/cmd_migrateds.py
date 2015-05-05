@@ -52,32 +52,33 @@ If you have a more complicated conversion task, please inspect the function
 # magic line for manpage summary
 # man: -*- % migrate PyMVPA datasets from previous versions
 
-import mvpa2
 import sys
 
 __docformat__ = 'restructuredtext'
 
 
 def setup_parser(parser):
-    excl = parser.add_mutually_exclusive_group()
-    excl.add_argument('--paths',
-                      help='colon-separated additional paths to be added to '
-                           'sys.path')
+    from .helpers import parser_add_common_opt
+
+    parser.add_argument('-p', '--paths',
+                        help='colon-separated additional paths to be added to '
+                             'sys.path')
     if __debug__:
-        excl.add_argument('--debug', action='store_true',
-                          help='list available debug channels')
-    excl.add_argument(
+        parser.add_argument('--debug', action='store_true',
+                            help='list available debug channels')
+
+    parser.add_argument(
             '-a', '--action', choices=['strip_nibabel'],
-            default=None,
-            help="Available migration actions.  'strip_nibabel' -- converts "
-                 "dataset attributes into portable form")
-    excl.add_argument(
-            '-i', '--input', type="str", required=True,
+            default=None, required=True,
+            help="""Available migration actions.  'strip_nibabel' -- converts
+                    dataset attributes into portable form""")
+
+    parser.add_argument(
+            '-i', '--input', required=True,
             help="""path to a PyMVPA dataset file.  It can contain a list of
-                 datasets to be migrated""")
-    excl.add_argument(
-            '-o', '--output', type="str", required=True,
-            help="""output filename""")
+                    datasets to be migrated""")
+
+    parser_add_common_opt(parser, 'output_file', required=True)
 
     return parser
 
@@ -95,9 +96,12 @@ def action_strip_nibabel(ds):
 
 def run(args):
     old_sys_path = sys.path
+
     if args.paths:
         # need to happen before any other import
-        sys.path = sys.paths.split(':') + sys.path
+        sys.path = args.paths.split(':') + sys.path
+        import nibabel
+        reload(nibabel)
 
     try:
         from mvpa2.base.hdf5 import h5load, h5save
