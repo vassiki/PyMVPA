@@ -38,17 +38,16 @@ import argparse
 import mvpa2
 from mvpa2.base import verbose, warning, externals
 
-if externals.exists('nibabel', raise_=True):
-    import nibabel as nb
-
 if __debug__:
     from mvpa2.base import debug
 
-from mvpa2.atlases.transformation import *
+if externals.exists('nibabel') and externals.exists('lxml'):
+    from mvpa2.atlases.transformation import *
 
-if externals.exists('lxml', raise_=True):
     from mvpa2.atlases import Atlas, ReferencesAtlas, FSLProbabilisticAtlas, \
          KNOWN_ATLASES, KNOWN_ATLAS_FAMILIES, XMLAtlasException
+else:
+    KNOWN_ATLASES = {'none': 'please install nibabel and lxml'}
 
 import numpy as np
 #import numpy.linalg as la
@@ -66,6 +65,8 @@ def select_from_volume_iterator(volFileName, lt=None, ut=None):
     More effective than previous loopy iteration since uses numpy's where
     function, but for now is limited only to non-0 voxels selection
     """
+    import nibabel as nb
+
     try:
         volFile = nb.load(volFileName)
     except:
@@ -429,6 +430,7 @@ def setup_parser(parser):
 
 def run(args):
     #atlas.relativeToOrigin = args.coordRelativeToOrigin
+    import nibabel as nb
 
     fileIn = None
     coordT = None
