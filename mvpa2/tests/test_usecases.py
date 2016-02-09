@@ -604,6 +604,9 @@ def test_permute_superord():
 
     ds = _get_superord_dataset()
     # mvpa2.seed(1)
+    # NOTE:  may be that is not what we actually wanted!!!
+    #  since it breaks assignment of superord -> subord and thus permutted
+    #  sets provide overly too pessimistic result making H0 too slim
     part = ChainNode([
     ## so we split based on superord
         NFoldPartitioner(len(ds.sa['superord'].unique),
@@ -621,3 +624,68 @@ def test_permute_superord():
     for ds_perm in part.generate(ds):
         # it does permutation
         assert(np.sum(ds_perm.sa.superord != ds.sa.superord) != 0)
+
+
+class OnlyUniquePermutations(object):
+
+    def __init__(self, attrs):
+        self.attrs = attrs
+        self._seen = []
+        self._count = 0
+
+    def generate(self, ds):
+        attr_value = [ds.sa[attr].value.tolist() for attr in self.attrs]
+        for seen in self._seen:
+            if attr_value == seen:
+                # import pdb; pdb.set_trace()
+                # this one is a bad one
+                # TODO: make this threshold dependent on actual data i.e. number
+                # of possible permutations of the attr
+                self._count += 1
+                if False: #self._count > 100:
+                    raise RuntimeError("Could not get more of unique permutations within 100 cycles")
+                return
+        self._count = 0
+        self._seen.append(attr_value)
+        # for our cause we need to reassign super ord labels here based on subord
+        # which were permutted
+
+        yield ds
+
+
+@reseed_rng()
+def test_permute_superord_surely_correct():
+    from mvpa2.base.node import ChainNode
+    from mvpa2.generators.partition import NFoldPartitioner, FactorialPartitioner
+    from mvpa2.generators.permutation import AttributePermutator
+
+    ds3x2 = _get_superord_dataset()
+    # Matteo likes it simple(r)
+    ds2x2 = ds3x2.select(sadict=dict(superord=['super0', 'super1']))
+
+    # mvpa2.seed(1)
+    # NOTE:  may be that is not what we actually wanted!!!
+    #  since it breaks assignment of superord -> subord and thus permutted
+    #  sets provide overly too pessimistic result making H0 too slim
+    part = ChainNode([
+    ## so we split based on superord
+        FactorialPartitioner(NFoldPartitioner(attr="subord"), attr='superord'),
+        AttributePermutator('subord', strategy='uattrs', limit='partitions', count=1000),
+        AttributePermutator('subord', strategy='uattrs', count=10000),
+        OnlyUniquePermutations(['subord']), # , 'partitions']),
+    ], space='partitions')
+
+    all_perms2x2 = list(part.generate(ds2x2))
+    assert_equal(len(all_perms2x2), 16)
+
+    all_perms3x2 = list(part.generate(ds3x2))
+    assert_equal(len(all_perms3x2), 36 * 8)  # 3!(training) * 3! (testing) * 8 (# CV folds)
+
+    # Let's generate our 4x2 design
+    nc = 5
+    from mvpa2.datasets import Dataset
+    ds = Dataset(np.empty((nc * 4 * 2, 1)), sa={'subord': list(range(8))*nc})
+    ds.sa['superord'] = ds.sa.subord // 4
+
+    all_perms4x2 = list(part.generate(ds))
+    assert_equal(len(all_perms4x2), 240 * 2 * 16)  # 6! (training) * 2! (testing) * 16 folds
