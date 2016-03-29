@@ -288,6 +288,12 @@ class SearchlightHyperalignment(ClassWithCollections):
             common model.  These will still get mappers back but they don't
             influence the model or voxel selection.""")
 
+    pass_skinny_datasets = Parameter(
+        False,
+        constraints=EnsureBool(),
+        doc="""While parallelizing, pass inside only relevant portion of the
+            dataset and query engines to be retrained.""")
+
     mask_node_ids = Parameter(
         None,
         constraints=EnsureListOf(int) | EnsureNone(),
@@ -336,11 +342,14 @@ class SearchlightHyperalignment(ClassWithCollections):
             raise RuntimeError("The 'hdf5' module is required for "
                                "when results_backend is set to 'hdf5'")
 
-    def _proc_block(self, block, datasets, measure, queryengines, seed=None, iblock='main'):
+    def _proc_block(self, block, datasets, measure, queryengines, seed=None, iblock='main',
+                    full_to_skinny=None):
         if seed is not None:
             mvpa2.seed(seed)
         if __debug__:
             debug('SLC', 'Starting computing block for %i elements' % len(block))
+
+        # we always handle as if we were passed skinny datasets
         bar = ProgressBar()
         projections = [csc_matrix((self.nfeatures, self.nfeatures),
                                   dtype=self.params.dtype)
@@ -349,11 +358,20 @@ class SearchlightHyperalignment(ClassWithCollections):
             # retrieve the feature ids of all features in the ROI from the query
             # engine
 
+            node_ids = [m[node_id] for m in full_to_skinny]
             # Find the neighborhood for that selected nearest node
-            roi_feature_ids_all = [qe[node_id] for qe in queryengines]
+            roi_feature_ids_full = [qe[node_id] for qe, node_id in zip(queryengines, node_ids)]
+
+            # Possibly remap also the feature ids
+            roi_feature_ids_all = [
+                [m[fid] for fid in fids]
+                for m, fids in zip(full_to_skinny, roi_feature_ids_full)
+            ]
+
             if len(roi_feature_ids_all) == 1:
                 # just one was provided to be "broadcasted"
                 roi_feature_ids_all *= len(datasets)
+
             # if qe returns zero-sized ROI for any subject, pass...
             if any(len(x)==0 for x in roi_feature_ids_all):
                 continue
@@ -367,7 +385,7 @@ class SearchlightHyperalignment(ClassWithCollections):
             hmappers = measure(ds_temp)
             hmappers = hmappers.samples
             assert(len(hmappers) == len(datasets))
-            for isub, roi_feature_ids in enumerate(roi_feature_ids_all):
+            for isub, roi_feature_ids in enumerate(roi_feature_ids_full):
                 if not self.params.combine_neighbormappers:
                     I = roi_feature_ids
                     #J = [roi_feature_ids[node_id]] * len(roi_feature_ids)
@@ -575,11 +593,33 @@ class SearchlightHyperalignment(ClassWithCollections):
             compute = p_results.manage(
                         pprocess.MakeParallel(self._proc_block))
             seed = mvpa2.get_random_seed()
+
             for iblock, block in enumerate(node_blocks):
+                if params.pass_skinny_datasets:
+                    # TODO
+                    #  1: using our pre-trained QEs select indices of all relevant to a given block features
+                    raise NotImplementedError()
+                    relevant_ids = []  # sorted just to be on safer side
+                    #  2: subselect the datasets
+                    datasets_to_block = [ds[:, ids]
+                                         for ds, ids in zip(datasets, relevant_ids)]
+
+                    full_to_skinny = [np.ones(ds.nfeatures, dtype=np.int32) * 9999999
+                                      for ds in datasets]
+                    for m, ids in zip(full_to_skinny, ids):
+                        m[ids] = np.arange(len(ids))
+                else:
+                    datasets_to_block = datasets
+                    # TODO - make it indeed optional by special handling in proc_block
+                    # full_to_skinny = None
+                    full_to_skinny = [
+                        np.arange(ds.nfeatures, dtype=np.int32)
+                        for ds in datasets
+                    ]
                 # should we maybe deepcopy the measure to have a unique and
                 # independent one per process?
-                compute(block, datasets, copy.copy(hmeasure), queryengines,
-                        seed=seed, iblock=iblock)
+                compute(block, datasets_to_block, copy.copy(hmeasure), queryengines,
+                        seed=seed, iblock=iblock, full_to_skinny=full_to_skinny)
         else:
             # otherwise collect the results in an 1-item list
             _shpaldebug('Using 1 process to compute mappers.')
